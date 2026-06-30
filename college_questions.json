@@ -1,0 +1,1128 @@
+{
+  "version": "3.0",
+  "user_type": "college",
+  "total_categories": 17,
+  "total_questions": 170,
+  "response_options": {
+    "5": "Strongly Agree",
+    "4": "Agree",
+    "3": "Neutral",
+    "2": "Disagree",
+    "1": "Strongly Disagree"
+  },
+  "scoring": {
+    "min_score_per_category": 0,
+    "max_score_per_category": 50,
+    "match_thresholds": {
+      "high": 70,
+      "moderate": 50,
+      "low": 30
+    }
+  },
+  "categories": [
+    {
+      "category_id": "tech_engineering_college",
+      "category_name": "Technology & Engineering",
+      "icon": "💻",
+      "color": "#3B82F6",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "tech_c_1",
+          "text": "I have practical coding experience in at least one programming language and can independently write, debug, and optimize functional code for real-world applications.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_c_2",
+          "text": "I have a strong grasp of data structures and algorithms and can apply them to solve complex computational problems efficiently.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_c_3",
+          "text": "I have designed and developed a complete software project from concept to deployment, managing the entire development lifecycle independently.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_c_4",
+          "text": "I am proficient in using Git and GitHub for version control, collaborative coding, and maintaining project history across teams.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_c_5",
+          "text": "I understand networking fundamentals including HTTP/HTTPS protocols, DNS resolution, client-server architecture, and data transmission security.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_c_6",
+          "text": "I have built and deployed machine learning models using frameworks like TensorFlow or PyTorch and understand supervised and unsupervised learning concepts.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_c_7",
+          "text": "I have experience with database management systems and can write complex queries to extract, transform, and analyze data for business intelligence.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_c_8",
+          "text": "I am knowledgeable about cybersecurity threats like SQL injection, XSS, and CSRF attacks and can implement secure coding practices to prevent them.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_c_9",
+          "text": "I have experience working in Agile development teams using project management tools like Jira or Trello for sprint planning and task tracking.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_c_10",
+          "text": "I have knowledge of cloud computing platforms like AWS, Azure, or GCP and can deploy, scale, and manage applications on cloud infrastructure.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "health_sciences_college",
+      "category_name": "Health & Life Sciences",
+      "icon": "🏥",
+      "color": "#22C55E",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "health_c_1",
+          "text": "I have successfully completed rigorous pre-medical coursework including organic chemistry, biochemistry, and advanced biology with strong academic performance.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_c_2",
+          "text": "I have a comprehensive understanding of human anatomy and physiology, including all major organ systems and their complex interrelationships.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_c_3",
+          "text": "I have gained practical experience through hospital volunteering, shadowing healthcare professionals, or working in clinical settings.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_c_4",
+          "text": "I am fluent in medical terminology and can accurately interpret clinical documentation, lab reports, and healthcare communications.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_c_5",
+          "text": "I have completed foundational science courses in biology, chemistry, and physics that provide the scientific basis for advanced medical studies.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_c_6",
+          "text": "I have shadowed physicians and observed clinical consultations, diagnostic procedures, and patient management in hospital settings.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_c_7",
+          "text": "I am actively preparing for medical school admission through entrance exam preparation and building a competitive application portfolio.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_c_8",
+          "text": "I am pursuing a nursing or allied health degree with hands-on clinical rotation experience in diverse healthcare environments.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_c_9",
+          "text": "I have studied kinesiology, biomechanics, and exercise physiology and can apply these principles to rehabilitation and physical therapy.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_c_10",
+          "text": "I have knowledge of public health principles, epidemiology, disease prevention strategies, and healthcare policy development.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "business_finance_college",
+      "category_name": "Business, Finance & Management",
+      "icon": "💼",
+      "color": "#F59E0B",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "bus_c_1",
+          "text": "I have completed coursework in business administration, economics, corporate finance, and marketing management as part of my academic preparation.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "bus_c_2",
+          "text": "I understand accounting principles including debits and credits, and can interpret financial statements like balance sheets and income statements.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "bus_c_3",
+          "text": "I am highly proficient in spreadsheet applications for financial modeling, data analysis, forecasting, and business decision-making.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "bus_c_4",
+          "text": "I have a solid understanding of marketing frameworks including STP analysis, the 4 Ps, brand positioning, and consumer behavior insights.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "bus_c_5",
+          "text": "I have demonstrated leadership abilities by managing teams, delegating responsibilities, and driving projects to successful completion.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "bus_c_6",
+          "text": "I have studied strategic management and operations and can formulate business strategies, optimize processes, and implement operational efficiencies.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "bus_c_7",
+          "text": "I have entrepreneurial experience including launching a business, developing business plans, managing funding, and executing market entry strategies.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "bus_c_8",
+          "text": "I have built advanced financial models including DCF valuations, three-statement models, and scenario analysis for investment decision-making.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "bus_c_9",
+          "text": "I have studied consumer psychology, advertising strategies, and digital marketing techniques to create effective marketing campaigns.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "bus_c_10",
+          "text": "I have knowledge of supply chain management, logistics operations, inventory optimization, and distribution network design.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "creative_arts_college",
+      "category_name": "Creative Arts, Design & Media",
+      "icon": "🎨",
+      "color": "#6366F1",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "art_c_1",
+          "text": "I have developed a comprehensive creative portfolio showcasing my artistic skills, technical expertise, and unique visual style across multiple projects.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "art_c_2",
+          "text": "I am proficient in Adobe Creative Suite and other industry-standard design tools for creating professional visual content.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "art_c_3",
+          "text": "I have completed creative projects for clients, competitions, or publications, demonstrating my ability to work to briefs and meet deadlines.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "art_c_4",
+          "text": "I have collaborated on team-based creative projects like films, games, or performances, combining diverse talents to achieve a unified vision.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "art_c_5",
+          "text": "I have studied creative entrepreneurship including business management, copyright law, and marketing strategies for creative professionals.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "art_c_6",
+          "text": "I have created a body of work with consistent thematic or stylistic identity showing artistic growth and cohesive vision.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "art_c_7",
+          "text": "I have experience in performing arts including acting, dance, or music with stage presence and ability to engage audiences effectively.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "art_c_8",
+          "text": "I have produced short films or digital content with proficiency in scripting, shooting, editing, sound design, and storytelling techniques.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "art_c_9",
+          "text": "I have studied UX and product design, conducting user research and creating intuitive interfaces for digital products.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "art_c_10",
+          "text": "I am passionate about game design and development with knowledge of game mechanics, narrative design, and prototyping techniques.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "society_law_college",
+      "category_name": "Society, Law & Governance",
+      "icon": "⚖️",
+      "color": "#8B5CF6",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "law_c_1",
+          "text": "I have completed academic courses in political science, constitutional law, international relations, or public administration.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "law_c_2",
+          "text": "I understand government structures including separation of powers, legislative processes, and the role of judiciary in upholding laws.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "law_c_3",
+          "text": "I have participated in debates, Model UN, or moot court activities that have developed my public speaking and legal reasoning skills.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "law_c_4",
+          "text": "I have completed internships at law firms, courts, or legal departments with exposure to case preparation and legal documentation.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "law_c_5",
+          "text": "I am developing expertise in corporate law, mergers and acquisitions, contract law, and legal aspects of business transactions.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "law_c_6",
+          "text": "I have studied constitutional law, criminal law, and civil procedure with understanding of legal principles and their application.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "law_c_7",
+          "text": "I have studied international relations including diplomacy, foreign policy, global governance, and conflict resolution mechanisms.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "law_c_8",
+          "text": "I have completed courses in criminology, criminal justice systems, and the social factors influencing crime and punishment.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "law_c_9",
+          "text": "I am interested in forensic science and evidence law and how scientific evidence is used in criminal investigations and court proceedings.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "law_c_10",
+          "text": "I am passionate about justice, human rights advocacy, and the rule of law as foundations of democratic society.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "environment_college",
+      "category_name": "Environment, Agriculture & Earth Sciences",
+      "icon": "🌍",
+      "color": "#10B981",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "env_c_1",
+          "text": "I have completed academic courses in environmental science, ecology, geology, or earth science fields.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_c_2",
+          "text": "I have conducted field research or laboratory experiments in environmental science with data collection and analysis skills.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_c_3",
+          "text": "I have a comprehensive understanding of climate science, carbon cycles, greenhouse gas effects, and sustainability concepts.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_c_4",
+          "text": "I have completed internships with environmental NGOs, government agencies, or research laboratories on environmental projects.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_c_5",
+          "text": "I am deeply committed to environmental conservation, sustainable development, and protecting natural ecosystems.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_c_6",
+          "text": "I have studied ecology, conservation biology, biodiversity, and ecosystem management principles for habitat preservation.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_c_7",
+          "text": "I have knowledge of marine biology, oceanography, marine ecosystems, and ocean conservation strategies.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_c_8",
+          "text": "I have studied geology, geophysics, hydrology, and physical earth processes including plate tectonics and the water cycle.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_c_9",
+          "text": "I have proficiency in GIS and remote sensing technologies for environmental mapping, spatial analysis, and land-use planning.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_c_10",
+          "text": "I have knowledge of waste management, recycling systems, circular economy principles, and sustainable resource utilization.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "services_college",
+      "category_name": "Services, Hospitality & Public Safety",
+      "icon": "🛡️",
+      "color": "#EF4444",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "serv_c_1",
+          "text": "I have completed coursework in hospitality management, tourism operations, event planning, or public safety administration.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "serv_c_2",
+          "text": "I have practical work experience in customer service, food and beverage operations, or hotel management.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "serv_c_3",
+          "text": "I have experience planning and coordinating events with organizational skills and attention to detail.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "serv_c_4",
+          "text": "I have studied hospitality marketing, branding strategies, and revenue management for the service industry.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "serv_c_5",
+          "text": "I am interested in luxury hospitality, boutique hotel management, and premium guest experience delivery.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "serv_c_6",
+          "text": "I have specialized knowledge in hotel operations, culinary arts, food service management, or sustainable tourism.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "serv_c_7",
+          "text": "I have completed physical fitness training and basic requirements for careers in defence, law enforcement, or public safety.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "serv_c_8",
+          "text": "I am passionate about creating memorable guest experiences through personalized service and attention to quality.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "serv_c_9",
+          "text": "I have experience in event management including vendor coordination, logistics planning, and on-site event execution.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "serv_c_10",
+          "text": "I have knowledge of food and beverage management including menu engineering, cost control, and culinary team leadership.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "education_college",
+      "category_name": "Education & Training",
+      "icon": "📚",
+      "color": "#F97316",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "edu_c_1",
+          "text": "I have experience as a tutor, teaching assistant, or trainer with demonstrated ability to transfer knowledge effectively.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_c_2",
+          "text": "I have completed coursework in education, pedagogy, curriculum development, or instructional design.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_c_3",
+          "text": "I have created lesson plans, learning materials, or training content with clear learning objectives and assessment methods.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_c_4",
+          "text": "I have studied educational psychology, child development, or learning theories to understand how people learn effectively.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_c_5",
+          "text": "I have knowledge of educational technology, e-learning platforms, and digital tools for modern instructional delivery.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_c_6",
+          "text": "I have completed student teaching or classroom observation placements with hands-on teaching practice.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_c_7",
+          "text": "I have served as a teaching assistant or graduate assistant at the university level with student mentoring experience.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_c_8",
+          "text": "I have experience working with students with learning disabilities or special needs and implementing inclusive teaching strategies.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_c_9",
+          "text": "I am skilled in using Learning Management Systems for course delivery, assessment management, and student progress tracking.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_c_10",
+          "text": "I am committed to educational equity and access, advocating for quality education for all learners regardless of background.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "mathematics_college",
+      "category_name": "Mathematics & Statistics",
+      "icon": "📐",
+      "color": "#06B6D4",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "math_c_1",
+          "text": "I have completed advanced mathematics courses including calculus, linear algebra, and differential equations.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_c_2",
+          "text": "I have studied probability theory and statistical inference including hypothesis testing, regression, and distribution theory.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_c_3",
+          "text": "I am proficient in statistical software and programming languages for data analysis and predictive modeling.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_c_4",
+          "text": "I understand abstract mathematical concepts including complex numbers, vector spaces, and matrix algebra with practical applications.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_c_5",
+          "text": "I have studied mathematical logic, set theory, and formal proof techniques with emphasis on rigorous reasoning.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_c_6",
+          "text": "I have taken courses in pure mathematics including abstract algebra, real analysis, or topology with theorem proving experience.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_c_7",
+          "text": "I have studied applied mathematics including numerical analysis, optimization, and mathematical modeling of real-world systems.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_c_8",
+          "text": "I have advanced knowledge of stochastic processes, statistical inference, and Bayesian methods for data-driven decision-making.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_c_9",
+          "text": "I have experience with mathematical simulation and computational modeling to analyze complex systems and draw conclusions.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_c_10",
+          "text": "I have knowledge of mathematical finance including stochastic calculus, risk management, and portfolio optimization theory.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "transportation_college",
+      "category_name": "Transportation & Mobility",
+      "icon": "🚗",
+      "color": "#8B5CF6",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "trans_c_1",
+          "text": "I have completed coursework in logistics, supply chain management, or transportation engineering and systems planning.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_c_2",
+          "text": "I have knowledge of freight forwarding, customs documentation, Incoterms, and international trade logistics.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_c_3",
+          "text": "I understand design principles including color theory, lighting, and material selection for functional and aesthetic environments.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_c_4",
+          "text": "I have knowledge of building codes, accessibility standards, and safety regulations for infrastructure development.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_c_5",
+          "text": "I have studied automotive engineering, electric vehicle technology, and sustainable mobility systems.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_c_6",
+          "text": "I have knowledge of aviation management, airport operations, air traffic control, and airline logistics.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_c_7",
+          "text": "I have studied maritime transportation, shipping operations, port management, and global maritime logistics.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_c_8",
+          "text": "I have knowledge of urban transportation planning, public transit systems, traffic optimization, and sustainable city mobility.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_c_9",
+          "text": "I am knowledgeable about emerging mobility technologies including autonomous vehicles, smart traffic systems, and connected vehicles.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_c_10",
+          "text": "I understand transportation economics, regulatory frameworks, government policies, and infrastructure funding mechanisms.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "energy_college",
+      "category_name": "Energy & Utilities",
+      "icon": "⚡",
+      "color": "#F59E0B",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "energy_c_1",
+          "text": "I have completed coursework in energy engineering, power systems, utilities management, or electrical grid operations.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_c_2",
+          "text": "I understand electrical grid systems including transmission, distribution networks, and substation operations.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_c_3",
+          "text": "I have studied renewable energy technologies including solar PV systems, wind turbines, and grid integration.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_c_4",
+          "text": "I have knowledge of power system analysis, protection systems, fault analysis, and grid reliability management.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_c_5",
+          "text": "I have studied nuclear engineering principles, reactor physics, safety protocols, and nuclear waste management.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_c_6",
+          "text": "I have knowledge of energy policy, regulatory frameworks, energy economics, and market structures in the energy sector.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_c_7",
+          "text": "I understand energy storage technologies including battery systems, pumped hydro, thermal storage, and grid-scale storage solutions.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_c_8",
+          "text": "I have knowledge of smart grid technologies, demand-side management, and distributed energy resource integration.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_c_9",
+          "text": "I understand energy efficiency principles and can evaluate performance of buildings, industrial systems, and energy-intensive processes.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_c_10",
+          "text": "I have knowledge of environmental aspects of energy including carbon capture, lifecycle assessment, and sustainable energy transitions.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "manufacturing_college",
+      "category_name": "Manufacturing & Industrial Production",
+      "icon": "🏭",
+      "color": "#6B7280",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "mfg_c_1",
+          "text": "I have completed coursework in manufacturing engineering, industrial engineering, or production operations management.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_c_2",
+          "text": "I have studied quality control methods, statistical process control, and quality management systems.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_c_3",
+          "text": "I have knowledge of materials science, metallurgy, and material properties for manufacturing applications.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_c_4",
+          "text": "I am proficient in CAD/CAM software for 3D modeling, design optimization, and manufacturing process planning.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_c_5",
+          "text": "I understand automation, robotics, and Industry 4.0 technologies transforming modern manufacturing.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_c_6",
+          "text": "I have studied CNC machining, additive manufacturing, and advanced production processes for modern manufacturing.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_c_7",
+          "text": "I have knowledge of quality engineering, Six Sigma methodologies, and continuous improvement techniques.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_c_8",
+          "text": "I have studied materials characterization, failure analysis, and selection of materials for specific engineering applications.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_c_9",
+          "text": "I have knowledge of lean manufacturing principles and can apply waste reduction and efficiency improvement techniques.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_c_10",
+          "text": "I have practical experience on production floors or in factory environments with understanding of real-world manufacturing challenges.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "retail_college",
+      "category_name": "Retail & E-commerce",
+      "icon": "🛒",
+      "color": "#EC4899",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "ret_c_1",
+          "text": "I have completed coursework in retail management, e-commerce operations, or digital marketing strategies.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "ret_c_2",
+          "text": "I have practical experience in retail sales, customer service, or store operations management.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "ret_c_3",
+          "text": "I understand financial metrics, cost management, budgeting, and variance analysis for retail business decisions.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "ret_c_4",
+          "text": "I have knowledge of corporate governance, company law, and legal compliance in the retail industry.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "ret_c_5",
+          "text": "I have studied store operations and visual merchandising to create appealing customer experiences.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "ret_c_6",
+          "text": "I have experience launching or managing e-commerce platforms with understanding of online sales and digital marketing.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "ret_c_7",
+          "text": "I have knowledge of omnichannel retail strategies for integrating physical and digital customer experiences.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "ret_c_8",
+          "text": "I am skilled in retail analytics, customer data analysis, trend forecasting, and inventory optimization.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "ret_c_9",
+          "text": "I understand e-commerce fulfillment operations including warehousing, shipping, reverse logistics, and order management.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "ret_c_10",
+          "text": "I have knowledge of emerging retail technologies including AI for personalization, AR shopping, and innovative customer engagement.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "sports_college",
+      "category_name": "Sports & Fitness Industry",
+      "icon": "⚽",
+      "color": "#22C55E",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "sport_c_1",
+          "text": "I have completed coursework in sports management, exercise science, or fitness training and conditioning.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sport_c_2",
+          "text": "I have competitive sports experience at school, club, or collegiate level demonstrating athletic discipline and teamwork.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sport_c_3",
+          "text": "I have studied sports business, athletic administration, and financial management of sports organizations.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sport_c_4",
+          "text": "I have knowledge of exercise physiology, kinesiology, and biomechanics for athletic performance optimization.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sport_c_5",
+          "text": "I have experience with sports analytics, player performance evaluation, and data-driven strategy development.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sport_c_6",
+          "text": "I have studied sports medicine, injury prevention, rehabilitation techniques, and sports nutrition.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sport_c_7",
+          "text": "I have knowledge of sports law, governance, regulatory frameworks, and ethical issues in professional sports.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sport_c_8",
+          "text": "I have experience organizing or managing sporting events with logistics and operations management skills.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sport_c_9",
+          "text": "I have studied sports psychology, motivation, mental resilience, and team dynamics in competitive environments.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sport_c_10",
+          "text": "I am knowledgeable about technology in fitness including wearable devices, virtual training platforms, and health tracking.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "space_tech_college",
+      "category_name": "Space & Emerging Technologies",
+      "icon": "🚀",
+      "color": "#3B82F6",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "space_c_1",
+          "text": "I have completed coursework in aerospace engineering, astrophysics, space science, or orbital mechanics.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_c_2",
+          "text": "I understand spacecraft design, satellite systems, orbital mechanics, and space mission planning.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_c_3",
+          "text": "I have studied astronomy, astrophysics, cosmology and the fundamental nature of the universe.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_c_4",
+          "text": "I have knowledge of satellite engineering, subsystems, and the technical aspects of satellite operations.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_c_5",
+          "text": "I have studied space law, international space policy, and legal frameworks governing space exploration.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_c_6",
+          "text": "I am interested in emerging technologies for space including quantum computing, AI for autonomous navigation, and advanced materials.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_c_7",
+          "text": "I understand the economics of the space industry including launch costs, satellite communications business models, and space tourism.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_c_8",
+          "text": "I have practical experience in space-related projects, research, or student satellite team participation.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_c_9",
+          "text": "I stay informed about the latest developments in space exploration including Mars missions, exoplanet discoveries, and space technologies.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_c_10",
+          "text": "I am passionate about human space exploration and believe advancing space science is essential for our future.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "accounting_college",
+      "category_name": "Accounting & Finance",
+      "icon": "💰",
+      "color": "#10B981",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "acc_c_1",
+          "text": "I have completed comprehensive coursework in financial accounting, managerial accounting, and corporate finance.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_c_2",
+          "text": "I understand financial statements including income statements, balance sheets, cash flow statements, and their interconnections.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_c_3",
+          "text": "I have internship experience in accounting firms, banks, or corporate finance departments with practical financial exposure.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_c_4",
+          "text": "I am proficient in accounting software and enterprise systems for financial record management and reporting.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_c_5",
+          "text": "I am preparing for professional certifications like CA, CS, CMA, or CFA with understanding of their requirements and value.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_c_6",
+          "text": "I have studied taxation including individual, corporate, and partnership tax for compliance and planning.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_c_7",
+          "text": "I have knowledge of auditing, assurance services, internal controls, and risk assessment procedures.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_c_8",
+          "text": "I have studied advanced accounting including consolidations, foreign currency transactions, and financial instruments.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_c_9",
+          "text": "I have quantitative skills in business mathematics, statistics, and econometrics for financial analysis and modeling.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_c_10",
+          "text": "I have knowledge of financial regulations, reporting standards, and ethical responsibilities in the accounting profession.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    }
+  ]
+}

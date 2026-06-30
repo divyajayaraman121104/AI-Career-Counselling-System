@@ -1,0 +1,1128 @@
+{
+  "version": "3.0",
+  "user_type": "school",
+  "total_categories": 17,
+  "total_questions": 170,
+  "response_options": {
+    "5": "Strongly Agree",
+    "4": "Agree",
+    "3": "Neutral",
+    "2": "Disagree",
+    "1": "Strongly Disagree"
+  },
+  "scoring": {
+    "min_score_per_category": 0,
+    "max_score_per_category": 50,
+    "match_thresholds": {
+      "high": 70,
+      "moderate": 50,
+      "low": 30
+    }
+  },
+  "categories": [
+    {
+      "category_id": "tech_engineering_school",
+      "category_name": "Technology & Engineering",
+      "icon": "💻",
+      "color": "#3B82F6",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "tech_s_1",
+          "text": "When my phone or computer stops working, I enjoy trying to figure out and fix the problem myself rather than asking someone else for help.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_s_2",
+          "text": "I really enjoy solving math puzzles, brain teasers, and logical reasoning problems that make me think carefully.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_s_3",
+          "text": "I often wonder how video games are created and what goes on behind the scenes to make characters move and respond to my actions.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_s_4",
+          "text": "Building structures with LEGO, blocks, or construction kits and figuring out how pieces fit together is something I really enjoy.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_s_5",
+          "text": "I find it fascinating to look inside electronic devices like radios, remotes, or old computers to understand their parts and circuits.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_s_6",
+          "text": "The idea that machines can be trained to recognize faces, understand speech, and make decisions like humans really excites me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_s_7",
+          "text": "I would enjoy programming a robot or a computer to perform a specific task automatically without human intervention.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_s_8",
+          "text": "Analyzing data presented in charts, graphs, and tables to discover interesting trends and patterns is something I like doing.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_s_9",
+          "text": "I am curious about how websites, apps, and social media platforms are designed and developed from scratch.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "tech_s_10",
+          "text": "Learning about online safety, privacy protection, and how to keep personal information secure from hackers interests me.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "health_sciences_school",
+      "category_name": "Health & Life Sciences",
+      "icon": "🏥",
+      "color": "#22C55E",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "health_s_1",
+          "text": "I am curious about what happens inside our bodies when we eat, breathe, sleep, or get sick and how all the organs work together.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_s_2",
+          "text": "Learning about different living organisms, their life cycles, habitats, and how they survive in nature fascinates me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_s_3",
+          "text": "When I see someone hurt or unwell, I feel a strong urge to help them and make them feel better in any way I can.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_s_4",
+          "text": "I pay attention to eating nutritious food, drinking enough water, and staying physically active to keep my body healthy.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_s_5",
+          "text": "The thought of working in a hospital, clinic, or healthcare center and taking care of sick people excites me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_s_6",
+          "text": "I often imagine myself wearing a doctor's coat and treating patients, diagnosing illnesses, and making a difference in people's lives.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_s_7",
+          "text": "The human brain and how it controls our thoughts, memories, emotions, and actions is something I find truly amazing.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_s_8",
+          "text": "I am interested in understanding how different medicines work inside the body to fight infections and cure diseases.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_s_9",
+          "text": "Becoming a doctor is my biggest dream because I want to heal people and give them a chance to live healthy lives.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "health_s_10",
+          "text": "I have a deep love for animals and would love to become a veterinarian to treat sick and injured animals.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "business_finance_school",
+      "category_name": "Business, Finance & Management",
+      "icon": "💼",
+      "color": "#F59E0B",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "business_s_1",
+          "text": "Taking charge of group activities, organizing team members, and ensuring everyone completes their tasks is something I naturally do.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "business_s_2",
+          "text": "I often come up with unique ideas for products, services, or businesses and think about how they could become successful.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "business_s_3",
+          "text": "Managing my pocket money, saving for future needs, and planning my expenses carefully is something I take seriously.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "business_s_4",
+          "text": "I enjoy taking on leadership roles like being the captain of a team or heading a school club or committee.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "business_s_5",
+          "text": "I find it easy to persuade others, present my arguments convincingly, and get people to agree with my ideas.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "business_s_6",
+          "text": "Creating detailed plans, schedules, and to-do lists for events and activities is something I really enjoy doing.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "business_s_7",
+          "text": "I am fascinated by how brands advertise their products through television, social media, and other platforms to attract customers.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "business_s_8",
+          "text": "I would love to become a business leader, manager, or CEO who makes important decisions and guides a company to success.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "business_s_9",
+          "text": "Starting my own business and becoming an entrepreneur who builds something from nothing is a dream I have.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "business_s_10",
+          "text": "I am curious about how products are manufactured in one country and transported across the world to reach customers in other countries.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "creative_arts_school",
+      "category_name": "Creative Arts, Design & Media",
+      "icon": "🎨",
+      "color": "#6366F1",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "creative_s_1",
+          "text": "I spend hours drawing, painting, sketching, or creating visual art because it makes me happy and helps me express myself.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "creative_s_2",
+          "text": "Telling stories through writing, videos, comics, or oral storytelling is something I really enjoy and feel good at.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "creative_s_3",
+          "text": "Performing on stage, acting in plays, dancing, or entertaining an audience gives me a lot of joy and excitement.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "creative_s_4",
+          "text": "Playing a musical instrument, singing songs, or creating my own music and melodies is something I love to do.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "creative_s_5",
+          "text": "Writing poems, short stories, or maintaining a personal diary where I express my thoughts and feelings is important to me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "creative_s_6",
+          "text": "I aspire to become a professional artist, photographer, or graphic designer who creates beautiful visual content for a living.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "creative_s_7",
+          "text": "I am fascinated by video game design and often think about the art, characters, and gameplay mechanics that make games enjoyable.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "creative_s_8",
+          "text": "Making videos, editing them with music and effects, and sharing them with others is a hobby I thoroughly enjoy.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "creative_s_9",
+          "text": "Acting in school plays, drama productions, or creating short films with friends is something I find very exciting.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "creative_s_10",
+          "text": "Designing logos, posters, invitations, websites, or clothing that look visually appealing is a skill I enjoy developing.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "society_law_school",
+      "category_name": "Society, Law & Governance",
+      "icon": "⚖️",
+      "color": "#8B5CF6",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "society_s_1",
+          "text": "I strongly believe that all people should be treated equally and fairly, regardless of their background or circumstances.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "society_s_2",
+          "text": "Learning about historical events, how civilizations developed, and how governments were formed is very interesting to me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "society_s_3",
+          "text": "I love debating, discussing, and exchanging viewpoints on important social, political, and global issues with others.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "society_s_4",
+          "text": "Keeping up with current events by reading newspapers or watching news bulletins to stay informed is something I do regularly.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "society_s_5",
+          "text": "I feel strongly about standing up for people who are treated unfairly and cannot defend themselves.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "society_s_6",
+          "text": "I would be proud to become a lawyer, judge, or politician who works to ensure justice and fairness in society.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "society_s_7",
+          "text": "I am curious about international relations and how countries cooperate, negotiate, and sometimes disagree with each other.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "society_s_8",
+          "text": "I find criminal investigations, forensic science, and how evidence is used to solve crimes absolutely fascinating.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "society_s_9",
+          "text": "Understanding why laws are created, how they are enforced, and how they protect citizens is something that interests me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "society_s_10",
+          "text": "Participating in mock trials, Model United Nations, or debate competitions at school gives me a lot of confidence.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "environment_school",
+      "category_name": "Environment, Agriculture & Earth Sciences",
+      "icon": "🌍",
+      "color": "#10B981",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "env_s_1",
+          "text": "Protecting nature, saving wildlife, and keeping our planet clean and green is something I feel very strongly about.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_s_2",
+          "text": "Learning about natural phenomena like weather patterns, earthquakes, volcanoes, and climate systems is really exciting to me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_s_3",
+          "text": "I enjoy spending time outdoors, hiking, camping, and exploring forests, mountains, rivers, and other natural landscapes.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_s_4",
+          "text": "Gardening, planting trees, growing vegetables, and watching plants grow from seeds gives me a sense of accomplishment.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_s_5",
+          "text": "I am genuinely worried about global warming and environmental damage, and I want to help find solutions to these problems.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_s_6",
+          "text": "I dream of having a career where I can protect endangered species, conserve forests, and preserve natural habitats for future generations.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_s_7",
+          "text": "Marine life, ocean ecosystems, coral reefs, and the creatures living underwater are subjects I find truly captivating.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_s_8",
+          "text": "I love collecting and studying rocks, fossils, minerals, and learning about the geological history of the Earth.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_s_9",
+          "text": "I actively recycle waste materials, reduce my plastic usage, and encourage others to adopt environmentally friendly habits.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "env_s_10",
+          "text": "I am interested in sustainable farming practices and how we can grow food without harming the environment or depleting natural resources.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "services_school",
+      "category_name": "Services, Hospitality & Public Safety",
+      "icon": "🛡️",
+      "color": "#EF4444",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "service_s_1",
+          "text": "Making people feel welcome, comfortable, and happy with my service and attention is something I genuinely enjoy.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "service_s_2",
+          "text": "Organizing events like birthday parties, school functions, or gatherings and ensuring everything is perfect gives me joy.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "service_s_3",
+          "text": "I think about how I would protect people in dangerous situations and I am interested in public safety measures.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "service_s_4",
+          "text": "Working in the hospitality industry like hotels, resorts, restaurants, or travel companies is a career I would enjoy.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "service_s_5",
+          "text": "During emergencies or stressful situations, I remain calm, think logically, and take appropriate action without panicking.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "service_s_6",
+          "text": "I have always wanted to become a police officer, firefighter, or member of the armed forces to serve and protect my community.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "service_s_7",
+          "text": "Cooking, baking, and preparing delicious meals for family and friends is a hobby I truly love.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "service_s_8",
+          "text": "I enjoy working with tools, fixing broken items, building structures, and doing hands-on repair work.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "service_s_9",
+          "text": "Becoming an emergency medical responder or paramedic who saves lives in critical situations is a dream of mine.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "service_s_10",
+          "text": "Managing events, coordinating activities, and paying attention to every small detail to ensure success is something I do well.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "education_school",
+      "category_name": "Education & Training",
+      "icon": "📚",
+      "color": "#F97316",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "edu_s_1",
+          "text": "I feel happy when I am able to explain a difficult concept to someone and see them finally understand it.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_s_2",
+          "text": "Tutoring younger students, helping them with homework, and guiding them through challenging topics is very satisfying to me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_s_3",
+          "text": "Creating learning materials like study guides, presentations, flashcards, or worksheets for others is something I enjoy.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_s_4",
+          "text": "When someone doesn't understand something quickly, I patiently explain it again in different ways until they get it.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_s_5",
+          "text": "I like using examples, stories, and hands-on activities to make learning more interesting and easier to understand.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_s_6",
+          "text": "Coaching, mentoring, or training younger students in sports or academics is something I really enjoy doing.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_s_7",
+          "text": "I would enjoy creating educational apps, online courses, or digital tools that help students learn in new and exciting ways.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_s_8",
+          "text": "Becoming a teacher at a school and inspiring young minds to learn and grow is a career that appeals to me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_s_9",
+          "text": "I would love to become a university professor, lecturer, or researcher who teaches advanced subjects and contributes to knowledge.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "edu_s_10",
+          "text": "Helping students with special needs or learning disabilities to overcome challenges and succeed in school is very meaningful to me.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "mathematics_school",
+      "category_name": "Mathematics & Statistics",
+      "icon": "📐",
+      "color": "#06B6D4",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "math_s_1",
+          "text": "I find solving mathematical problems, equations, and calculations to be both fun and satisfying.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_s_2",
+          "text": "I love playing with logic puzzles, Sudoku, Rubik's cubes, and other brain teasers that test my thinking skills.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_s_3",
+          "text": "I enjoy discovering patterns in numbers, shapes, sequences, and data sets around me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_s_4",
+          "text": "Making predictions and estimates based on available information and data is something I am good at.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_s_5",
+          "text": "I enjoy strategy games like chess and board games that require planning, foresight, and careful decision-making.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_s_6",
+          "text": "I am curious about probability, chance, and how likely certain outcomes are in games, sports, and everyday life.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_s_7",
+          "text": "Even outside of schoolwork, I enjoy challenging myself with advanced or tricky math problems.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_s_8",
+          "text": "Using mathematics to solve practical problems like budgeting, measuring, or planning routes is something I enjoy.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_s_9",
+          "text": "I like collecting data, creating charts and graphs, and using visual representations to analyze information.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "math_s_10",
+          "text": "The world of cryptography, secret codes, and encryption fascinates me and I would love to learn more about it.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "transportation_school",
+      "category_name": "Transportation & Mobility",
+      "icon": "🚗",
+      "color": "#8B5CF6",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "trans_s_1",
+          "text": "I am fascinated by how airplanes stay in the air, how ships float, and how cars and trains move.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_s_2",
+          "text": "I love studying maps, learning about different routes, and understanding how places are connected.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_s_3",
+          "text": "Train networks, railway systems, and how they connect different cities and countries interest me a lot.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_s_4",
+          "text": "I enjoy building model vehicles like cars, trains, planes, and ships and understanding how they work.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_s_5",
+          "text": "I get excited about future transportation technologies like driverless cars, hyperloops, and space travel.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_s_6",
+          "text": "Planning road trips, figuring out the best routes, and finding interesting places to visit is fun for me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_s_7",
+          "text": "I am interested in how traffic systems, signals, and road networks are designed and managed in cities.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_s_8",
+          "text": "I am passionate about cars and want to understand how engines work and how new technology is changing vehicles.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_s_9",
+          "text": "Working at airports, for airlines, or in the aviation industry is a career path that really attracts me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "trans_s_10",
+          "text": "Maritime shipping, cargo vessels, ports, and how goods are transported across oceans fascinates me.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "energy_school",
+      "category_name": "Energy & Utilities",
+      "icon": "⚡",
+      "color": "#F59E0B",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "energy_s_1",
+          "text": "I am curious about how electricity is generated, how it travels, and how it reaches our homes and schools.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_s_2",
+          "text": "I strongly believe in using renewable energy like solar power and wind energy to protect the environment.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_s_3",
+          "text": "I am interested in battery technology and how energy can be stored and used efficiently.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_s_4",
+          "text": "Hydroelectric power and how flowing water can generate electricity for large populations fascinates me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_s_5",
+          "text": "I make a conscious effort to switch off lights and devices when not in use to save electricity.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_s_6",
+          "text": "I am curious about electric vehicles, how they work, and how they are different from traditional cars.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_s_7",
+          "text": "I often think about ways to make my home more energy efficient and reduce electricity wastage.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_s_8",
+          "text": "I am excited about the future of clean energy and how solar, wind, and other renewables can replace fossil fuels.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_s_9",
+          "text": "I want to understand how the power grid works and how electricity is distributed to different areas.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "energy_s_10",
+          "text": "Nuclear energy and how nuclear reactors generate large amounts of electricity really interests me.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "manufacturing_school",
+      "category_name": "Manufacturing & Industrial Production",
+      "icon": "🏭",
+      "color": "#6B7280",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "mfg_s_1",
+          "text": "I am very curious about how everyday products like cars, smartphones, toys, and furniture are made in factories.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_s_2",
+          "text": "I enjoy building, assembling, or creating things using my hands and a variety of tools.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_s_3",
+          "text": "I often think about how manufacturing processes could be improved to make them faster, cheaper, and better.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_s_4",
+          "text": "Taking apart old gadgets, clocks, or devices to understand how they function inside is something I really like.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_s_5",
+          "text": "I am fascinated by how robots and automated systems are used in modern factories for mass production.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_s_6",
+          "text": "Woodworking, crafting, metalworking, and creating useful objects from raw materials is a skill I want to develop.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_s_7",
+          "text": "Managing a production facility or factory line and ensuring operations run smoothly is a career I find interesting.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_s_8",
+          "text": "I pay close attention to the quality of products and enjoy checking items for flaws or defects.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_s_9",
+          "text": "Understanding different materials like metals, plastics, ceramics, and composites and their properties interests me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "mfg_s_10",
+          "text": "I would love to learn about 3D printing technology and create physical objects from digital designs.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "retail_school",
+      "category_name": "Retail & E-commerce",
+      "icon": "🛒",
+      "color": "#EC4899",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "retail_s_1",
+          "text": "I find it interesting to observe what products people buy and understand what influences their purchasing decisions.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "retail_s_2",
+          "text": "I am curious about how e-commerce websites operate, manage inventory, and deliver products to customers.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "retail_s_3",
+          "text": "I enjoy interacting with customers, answering their questions, and ensuring they have a pleasant shopping experience.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "retail_s_4",
+          "text": "Designing attractive product displays and arranging store layouts to attract customers is something I enjoy.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "retail_s_5",
+          "text": "I am interested in how social media marketing helps businesses reach new customers and increase sales.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "retail_s_6",
+          "text": "I enjoy finding good deals and negotiating prices when I go shopping for items.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "retail_s_7",
+          "text": "I am curious about how customer ratings, reviews, and feedback impact a product's sales and reputation.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "retail_s_8",
+          "text": "Starting my own online store and running an e-commerce business is a dream I would like to pursue.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "retail_s_9",
+          "text": "I would like to manage a physical retail store or a chain of stores, ensuring customer satisfaction and profitability.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "retail_s_10",
+          "text": "I am interested in understanding how products are picked, packed, shipped, and delivered through supply chains.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "sports_school",
+      "category_name": "Sports & Fitness Industry",
+      "icon": "⚽",
+      "color": "#22C55E",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "sports_s_1",
+          "text": "I feel most energetic and happy when I am playing sports or participating in physical activities.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sports_s_2",
+          "text": "I enjoy helping others improve their sports skills and coaching them on techniques and strategies.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sports_s_3",
+          "text": "Understanding how athletes stay fit, recover from injuries, and maintain peak performance interests me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sports_s_4",
+          "text": "I enjoy watching sports documentaries and learning about the journeys of successful athletes.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sports_s_5",
+          "text": "Setting fitness targets and tracking my progress in running, lifting, or other activities motivates me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sports_s_6",
+          "text": "I would enjoy working at a gym, sports center, or fitness facility where I can help people get healthier.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sports_s_7",
+          "text": "I make it a point to exercise, stay physically active, and maintain a healthy lifestyle.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sports_s_8",
+          "text": "Managing a sports team, handling operations, and developing team strategies is a career I find interesting.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sports_s_9",
+          "text": "I would like to become a personal trainer or fitness coach who helps clients achieve their fitness goals.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "sports_s_10",
+          "text": "I enjoy analyzing sports data, player statistics, and using numbers to understand game performance.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "space_tech_school",
+      "category_name": "Space & Emerging Technologies",
+      "icon": "🚀",
+      "color": "#3B82F6",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "space_s_1",
+          "text": "I am amazed by the universe, stars, planets, galaxies, and the vast mysteries of outer space.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_s_2",
+          "text": "I am curious about emerging technologies like artificial intelligence, virtual reality, and quantum computing.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_s_3",
+          "text": "I love watching sci-fi movies and shows that explore futuristic technology and space exploration.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_s_4",
+          "text": "Black holes, alien life, other galaxies, and the possibility of parallel universes fascinate me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_s_5",
+          "text": "Working for space agencies like NASA, ISRO, or private space companies like SpaceX is a dream of mine.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_s_6",
+          "text": "I enjoy learning about new inventions, gadgets, and technological breakthroughs that are changing the world.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_s_7",
+          "text": "Becoming an astronomer or astrophysicist who studies the universe is a career I would love to pursue.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_s_8",
+          "text": "I am curious about how satellites help us with GPS, weather forecasts, communications, and internet connectivity.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_s_9",
+          "text": "The laws, treaties, and policies that govern space exploration and international cooperation in space interest me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "space_s_10",
+          "text": "I would love to experience zero gravity and see Earth from space as a space tourist someday.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "category_id": "accounting_school",
+      "category_name": "Accounting & Finance",
+      "icon": "💰",
+      "color": "#10B981",
+      "total_questions": 10,
+      "questions": [
+        {
+          "id": "acc_s_1",
+          "text": "Working with numbers, doing calculations, and solving arithmetic problems gives me a sense of satisfaction.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_s_2",
+          "text": "I keep a close track of my income and expenses and make sure I don't overspend.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_s_3",
+          "text": "I like to plan my savings and set aside money for things I want to buy in the future.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_s_4",
+          "text": "Recording my daily expenses and maintaining a personal budget is something I do regularly.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_s_5",
+          "text": "I am curious about how banks manage money, how interest works, and how credit cards function.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_s_6",
+          "text": "I enjoy finding smart ways to save money, avoid unnecessary expenses, and spend wisely.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_s_7",
+          "text": "I would like to manage financial records, budgets, and accounts for a company or organization.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_s_8",
+          "text": "Understanding how taxes work for individuals and businesses and why they are important interests me.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_s_9",
+          "text": "I enjoy checking financial documents for errors, reconciling statements, and ensuring accuracy.",
+          "type": "core",
+          "weight": 1.0
+        },
+        {
+          "id": "acc_s_10",
+          "text": "I am interested in ESG investing, which focuses on investing in companies that are socially and environmentally responsible.",
+          "type": "core",
+          "weight": 1.0
+        }
+      ]
+    }
+  ]
+}
