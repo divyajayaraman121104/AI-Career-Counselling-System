@@ -78,6 +78,7 @@ st.markdown("""
     
     /* User Cards - Frosted Glass */
     .user-card {
+        box-sizing: border-box;
         background: rgba(255, 255, 255, 0.85);
         backdrop-filter: blur(8px);
         border-radius: 24px;
@@ -85,7 +86,7 @@ st.markdown("""
         text-align: center;
         transition: all 0.3s ease;
         border: 2px solid rgba(102, 126, 234, 0.3);
-        margin: 0.5rem;
+        margin: 0 0 var(--space-sm) 0;
         cursor: pointer;
     }
     .user-card:hover {
@@ -111,90 +112,53 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 10px 20px -5px rgba(102,126,234,0.4);
     }
-    
-    /* Menu Buttons */
-    .menu-btn {
-        background: rgba(255,255,255,0.2) !important;
-        backdrop-filter: blur(4px);
-        border: 1px solid rgba(255,255,255,0.3) !important;
-        color: white !important;
-        padding: 0.5rem 1.2rem !important;
-        border-radius: 40px !important;
-        font-weight: 600 !important;
-        font-size: 0.9rem !important;
-        transition: all 0.3s ease !important;
+
+    /* Top-nav Home/About/Contact/Help buttons - scoped so this never
+       affects any other button in the app. Keeps labels on one line and
+       shrinks padding/font so 4 buttons fit comfortably side-by-side. */
+    .st-key-header_menu_row .stButton > button {
+        padding: 0.55rem 0.5rem;
+        font-size: 0.82rem;
+        white-space: nowrap;
+        min-width: 0;
     }
-    .menu-btn:hover {
-        background: rgba(102, 126, 234, 0.3) !important;
-        color: #667eea !important;
-        border-color: #667eea !important;
+    @media (max-width: 768px) {
+        .st-key-header_menu_row .stButton > button {
+            padding: 0.5rem 0.3rem;
+            font-size: 0.72rem;
+        }
     }
     
     /* Question Cards */
     .question-card {
+        box-sizing: border-box;
         background: rgba(247, 250, 252, 0.9);
         border-radius: 20px;
         padding: 1rem;
-        margin: 0.8rem 0;
+        margin: 0 0 var(--space-sm) 0;
         border-left: 5px solid #667eea;
         backdrop-filter: blur(4px);
     }
     
-    /* Stream Cards - Gradient Cards */
-    .stream-card-high {
-        background: linear-gradient(135deg, #11998e, #38ef7d);
+    /* Stream Cards - Gradient Cards (base look; sizing/spacing is owned
+       by the .rec-card / .compare-card modifier classes applied in the
+       markup, so there is a single source of truth for box model) */
+    .stream-card-high, .stream-card-good, .stream-card-fair, .stream-card-potential {
+        box-sizing: border-box;
         border-radius: 20px;
         padding: 1.5rem;
         text-align: center;
         transition: all 0.3s ease;
-        margin: 0.5rem;
         cursor: pointer;
         color: white;
     }
-    .stream-card-good {
-        background: linear-gradient(135deg, #f2994a, #f2c94c);
-        border-radius: 20px;
-        padding: 1.5rem;
-        text-align: center;
-        transition: all 0.3s ease;
-        margin: 0.5rem;
-        cursor: pointer;
-        color: white;
-    }
-    .stream-card-fair {
-        background: linear-gradient(135deg, #ff6b6b, #feca57);
-        border-radius: 20px;
-        padding: 1.5rem;
-        text-align: center;
-        transition: all 0.3s ease;
-        margin: 0.5rem;
-        cursor: pointer;
-        color: white;
-    }
-    .stream-card-potential {
-        background: linear-gradient(135deg, #4facfe, #00f2fe);
-        border-radius: 20px;
-        padding: 1.5rem;
-        text-align: center;
-        transition: all 0.3s ease;
-        margin: 0.5rem;
-        cursor: pointer;
-        color: white;
-    }
-    .stream-card-low {
-        background: linear-gradient(135deg, #8e9eab, #eef2f3);
-        border-radius: 20px;
-        padding: 1.5rem;
-        text-align: center;
-        transition: all 0.3s ease;
-        margin: 0.5rem;
-        cursor: pointer;
-        color: #4a5568;
-    }
-    
-    .stream-card-high:hover, .stream-card-good:hover, 
-    .stream-card-fair:hover, .stream-card-potential:hover, 
-    .stream-card-low:hover {
+    .stream-card-high { background: linear-gradient(135deg, #11998e, #38ef7d); }
+    .stream-card-good { background: linear-gradient(135deg, #f2994a, #f2c94c); }
+    .stream-card-fair { background: linear-gradient(135deg, #ff6b6b, #feca57); }
+    .stream-card-potential { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+
+    .stream-card-high:hover, .stream-card-good:hover,
+    .stream-card-fair:hover, .stream-card-potential:hover {
         transform: translateY(-8px);
         box-shadow: 0 20px 40px -12px rgba(0,0,0,0.3);
     }
@@ -212,16 +176,6 @@ st.markdown("""
         border-radius: 20px;
         height: 100%;
         transition: width 1s ease;
-    }
-    
-    /* Match Card */
-    .match-high {
-        background: linear-gradient(135deg, rgba(232,245,233,0.9), rgba(200,230,201,0.9));
-        backdrop-filter: blur(4px);
-        border-left: 8px solid #11998e;
-        border-radius: 20px;
-        padding: 1.5rem;
-        margin: 1rem 0;
     }
     
     /* Radio Buttons */
@@ -277,7 +231,7 @@ st.markdown("""
     
     /* Print styles */
     @media print {
-        .stButton, .stDownloadButton, .menu-container {
+        .stButton, .stDownloadButton {
             display: none !important;
         }
         .main-card {
@@ -290,30 +244,73 @@ st.markdown("""
     }
 
     /* ==================== FIXED DROPDOWN VISIBILITY - CRITICAL FIX ==================== */
-    
+
+    /* The "card" wrapper divs on every page are opened with one
+       st.markdown('<div class="main-card">') call and closed with a
+       separate later st.markdown('</div>') call. Streamlit renders each
+       st.markdown() call as its own isolated DOM node, so that opening
+       tag briefly renders as a standalone, contentless <div class="main-card">
+       before the real content (which lives in later, sibling Streamlit
+       elements) appears - showing up as an empty rounded/shadowed box.
+       Hiding it only when genuinely empty leaves every populated card
+       completely untouched. */
+    .main-card:empty {
+        display: none !important;
+    }
+
+    /* ==================== SHARED INPUT SIZING TOKENS ==================== */
+    :root {
+        --field-height: 48px;
+        --field-border: 2px solid #1E88E5;
+        --field-radius: 12px;
+        --field-padding: 12px 15px;
+        --field-font-size: 1rem;
+    }
+
+    /* Prevent ANY ancestor wrapper from clipping the field's border,
+       regardless of which emotion-cache div Streamlit generates. This is
+       what was making the bottom border disappear on some fields. */
+    .stTextInput, .stTextInput > div, .stTextInput > div > div,
+    .stNumberInput, .stNumberInput > div, .stNumberInput > div > div,
+    .stSelectbox, .stSelectbox > div, .stSelectbox > div > div {
+        overflow: visible !important;
+    }
+
     /* SelectBox Container - Base styling */
     .stSelectbox > div {
         background: white !important;
-        border-radius: 12px !important;
+        border-radius: var(--field-radius) !important;
     }
     
     /* The main select box input field */
     .stSelectbox div[data-baseweb="select"] {
         background: white !important;
-        border: 2px solid #1E88E5 !important;
-        border-radius: 12px !important;
-        min-height: 45px !important;
+        border: var(--field-border) !important;
+        border-radius: var(--field-radius) !important;
+        height: var(--field-height) !important;
+        min-height: var(--field-height) !important;
+        max-height: var(--field-height) !important;
+        box-sizing: border-box !important;
+        box-shadow: 0 2px 6px rgba(30, 136, 229, 0.08) !important;
+        transition: all 0.25s ease !important;
+        display: flex !important;
+        align-items: center !important;
     }
     
     .stSelectbox div[data-baseweb="select"]:hover {
         border-color: #1565C0 !important;
         background: #E3F2FD !important;
     }
+
+    .stSelectbox div[data-baseweb="select"]:focus-within {
+        border-color: #1565C0 !important;
+        box-shadow: 0 0 0 3px rgba(30, 136, 229, 0.2) !important;
+    }
     
     /* THE MOST IMPORTANT FIX - Selected value text */
     .stSelectbox div[data-baseweb="select"] div {
         color: #1a1a2e !important;
-        font-size: 1rem !important;
+        font-size: var(--field-font-size) !important;
         font-weight: 500 !important;
     }
     
@@ -332,14 +329,14 @@ st.markdown("""
     div[data-baseweb="popover"] {
         background: white !important;
         border: 1px solid #1E88E5 !important;
-        border-radius: 12px !important;
+        border-radius: var(--field-radius) !important;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
     }
     
     /* Dropdown options list */
     ul[role="listbox"] {
         background: white !important;
-        border-radius: 12px !important;
+        border-radius: var(--field-radius) !important;
     }
     
     /* Individual option items */
@@ -363,20 +360,48 @@ st.markdown("""
     }
     
     /* ==================== INPUT FIELDS STYLING ==================== */
-    
-    /* Text Input Fields */
+
+    /* BaseWeb wraps every text/number <input> in its own chrome div
+       (border/background/shadow) BEFORE our CSS below ever touches the
+       actual <input>. Left alone, that produces the "double box" /
+       mismatched-corner look (a default grey/blue sliver peeking out
+       around our custom border). Stripping it here means the only
+       visible border/background/shadow on every field is the one we
+       define explicitly below - text, number, and select all end up
+       pixel-identical. */
+    .stTextInput div[data-baseweb="base-input"],
+    .stTextInput div[data-baseweb="input"],
+    .stNumberInput div[data-baseweb="base-input"],
+    .stNumberInput div[data-baseweb="input"] {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        height: var(--field-height) !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Text Input Fields - identical box model to .stSelectbox and the
+       number input, so text inputs, number inputs, and dropdowns all
+       render at the exact same height/border/radius in the same row. */
     .stTextInput > div > div > input {
-        background: white !important;
-        border: 2px solid #1E88E5 !important;
-        border-radius: 12px !important;
-        padding: 12px 15px !important;
-        font-size: 1rem !important;
+        background: #ffffff !important;
+        border: var(--field-border) !important;
+        border-radius: var(--field-radius) !important;
+        padding: var(--field-padding) !important;
+        height: var(--field-height) !important;
+        min-height: var(--field-height) !important;
+        max-height: var(--field-height) !important;
+        box-sizing: border-box !important;
+        font-size: var(--field-font-size) !important;
+        line-height: normal !important;
         color: #1a1a2e !important;
-        transition: all 0.3s ease !important;
+        box-shadow: 0 2px 6px rgba(30, 136, 229, 0.08) !important;
+        transition: all 0.25s ease !important;
     }
     
     .stTextInput > div > div > input:focus {
         border-color: #1565C0 !important;
+        background: #ffffff !important;
         box-shadow: 0 0 0 3px rgba(30, 136, 229, 0.2) !important;
         outline: none !important;
     }
@@ -386,21 +411,57 @@ st.markdown("""
         background: #E3F2FD !important;
     }
     
-    /* Number Input Fields */
-    .stNumberInput > div > div > input {
-        background: white !important;
-        border: 2px solid #1E88E5 !important;
-        border-radius: 12px !important;
-        padding: 12px 15px !important;
-        font-size: 1rem !important;
-        color: #1a1a2e !important;
-        transition: all 0.3s ease !important;
+    /* Number Input - the stepper container (field + −/+ buttons) is
+       styled as ONE unified pill locked to --field-height, same as the
+       text/select fields. overflow:hidden here only clips the buttons'
+       square corners against the rounded container - it can no longer
+       clip the border itself because every child is locked to
+       height:100% + border-box, so nothing can grow past the
+       container's own edge and force a clip anymore. */
+    div[data-testid="stNumberInputContainer"] {
+        background: #ffffff !important;
+        border: var(--field-border) !important;
+        border-radius: var(--field-radius) !important;
+        height: var(--field-height) !important;
+        min-height: var(--field-height) !important;
+        max-height: var(--field-height) !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        display: flex !important;
+        align-items: stretch !important;
+        box-shadow: 0 2px 6px rgba(30, 136, 229, 0.08) !important;
+        transition: all 0.25s ease !important;
     }
-    
-    .stNumberInput > div > div > input:focus {
+    div[data-testid="stNumberInputContainer"]:hover {
+        border-color: #1565C0 !important;
+    }
+    div[data-testid="stNumberInputContainer"]:focus-within {
         border-color: #1565C0 !important;
         box-shadow: 0 0 0 3px rgba(30, 136, 229, 0.2) !important;
-        outline: none !important;
+    }
+    .stNumberInput > div > div > input {
+        background: transparent !important;
+        border: none !important;
+        border-radius: 0 !important;
+        padding: var(--field-padding) !important;
+        height: 100% !important;
+        box-sizing: border-box !important;
+        font-size: var(--field-font-size) !important;
+        line-height: normal !important;
+        color: #1a1a2e !important;
+        box-shadow: none !important;
+    }
+    .stNumberInput button {
+        background: #ffffff !important;
+        border: none !important;
+        border-left: 1px solid #E3F2FD !important;
+        height: 100% !important;
+        box-sizing: border-box !important;
+        color: #1E88E5 !important;
+        transition: background 0.2s ease !important;
+    }
+    .stNumberInput button:hover {
+        background: #E3F2FD !important;
     }
     
     /* Labels */
@@ -419,7 +480,331 @@ st.markdown("""
         color: #90A4AE !important;
         font-size: 0.9rem !important;
     }
-       
+
+    /* Equal vertical rhythm between stacked fields in the same column so
+       one field's box-shadow/border never visually merges with the next
+       field's label. */
+    div[data-testid="stTextInput"],
+    div[data-testid="stNumberInput"],
+    div[data-testid="stSelectbox"] {
+        margin-bottom: 0.4rem !important;
+    }
+
+    /* ==================== SKILL CHIPS (Technical / Soft Skills) ==================== */
+    .skill-chip-tech {
+        display: inline-block;
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        color: white;
+        border-radius: 30px;
+        padding: 0.5rem 1rem;
+        margin: 0.3rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        box-shadow: 0 4px 10px -4px rgba(79,172,254,0.5);
+    }
+    .skill-chip-soft {
+        display: inline-block;
+        background: linear-gradient(135deg, #f2994a, #f2c94c);
+        color: white;
+        border-radius: 30px;
+        padding: 0.5rem 1rem;
+        margin: 0.3rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        box-shadow: 0 4px 10px -4px rgba(242,153,74,0.5);
+    }
+
+    /* ==================== CAREER OPPORTUNITY CARDS ==================== */
+    .opportunity-card {
+        box-sizing: border-box;
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(6px);
+        border-radius: 18px;
+        padding: 1.2rem;
+        margin: 0 0 var(--space-sm) 0;
+        text-align: center;
+        border: 1px solid rgba(102,126,234,0.25);
+        box-shadow: 0 10px 25px -10px rgba(0,0,0,0.2);
+        transition: all 0.25s ease;
+        height: 100%;
+    }
+    .opportunity-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 16px 32px -10px rgba(102,126,234,0.35);
+        border-color: #667eea;
+    }
+    .opportunity-card .opp-icon {
+        font-size: 1.6rem;
+        margin-bottom: 0.3rem;
+    }
+    .opportunity-card .opp-label {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #2d2d44;
+    }
+
+    /* ==================== DESIGN SYSTEM TOKENS ==================== */
+    :root {
+        --radius-lg: 28px;
+        --radius-md: 20px;
+        --radius-sm: 12px;
+        --space-xs: 0.5rem;
+        --space-sm: 0.8rem;
+        --space-md: 1.2rem;
+        --space-lg: 1.8rem;
+        --shadow-card: 0 10px 25px -10px rgba(0,0,0,0.18);
+        --shadow-card-hover: 0 16px 32px -10px rgba(102,126,234,0.35);
+        --border-soft: 1px solid rgba(102,126,234,0.2);
+        --brand-gradient: linear-gradient(135deg, #667eea, #764ba2);
+        --text-heading: #2d2d44;
+        --text-body: #4a5568;
+    }
+
+    /* ==================== PREVIOUSLY UNSTYLED CLASSES ====================
+       These classes were referenced throughout the app but had no matching
+       CSS rule, causing default/unstyled browser text (wrong font size,
+       weight, color, spacing) to appear next to properly styled elements.
+       Styling them brings every page onto the same visual system. */
+    .welcome-subheading {
+        text-align: center;
+        color: var(--text-body);
+        font-size: 1.05rem;
+        font-weight: 500;
+        line-height: 1.5;
+        margin: 0 0 var(--space-sm) 0;
+    }
+    .sub-message {
+        text-align: center;
+        color: var(--text-body);
+        font-size: 1rem;
+        font-weight: 500;
+        margin: 0 0 var(--space-sm) 0;
+    }
+    .section-title {
+        color: var(--text-heading);
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin: var(--space-sm) 0 var(--space-xs) 0;
+    }
+    .deco-icon {
+        text-align: center;
+        font-size: 2.2rem;
+        letter-spacing: 0.6rem;
+        margin-bottom: var(--space-xs);
+    }
+    .student-info-card {
+        background: rgba(102,126,234,0.08);
+        border: var(--border-soft);
+        border-radius: var(--radius-md);
+        padding: var(--space-md);
+        margin-bottom: var(--space-md);
+        color: var(--text-heading);
+        font-size: 1rem;
+        line-height: 1.6;
+        text-align: center;
+    }
+    .user-icon {
+        font-size: 2.2rem;
+        margin-bottom: var(--space-xs);
+    }
+    .question-text {
+        font-weight: 700;
+        color: var(--text-heading);
+        font-size: 1.05rem;
+        line-height: 1.5;
+    }
+    .stream-detail-card {
+        background: rgba(255,255,255,0.92);
+        backdrop-filter: blur(8px);
+        border-radius: var(--radius-lg);
+        padding: var(--space-lg);
+        margin-bottom: var(--space-md);
+        box-shadow: var(--shadow-card);
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    /* ==================== REMOVE DEFAULT STREAMLIT CHROME ====================
+       Streamlit's built-in top toolbar/decoration bar renders as a solid
+       block above the page content by default. Against this app's custom
+       background it shows up as a stray white rectangle sitting above/
+       behind the logo and page title. Making it transparent removes that
+       empty decorative box without touching any app content. */
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    div[data-testid="stDecoration"] {
+        display: none !important;
+    }
+    div[data-testid="stToolbar"] {
+        background: transparent !important;
+    }
+    div[data-testid="stImage"] {
+        background: transparent !important;
+        margin: 0 !important;
+    }
+
+    /* ==================== HEADING HIERARCHY ==================== */
+    .main-card h3 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text-heading);
+        margin: 0.3rem 0 0.6rem 0;
+    }
+
+    /* ==================== EQUAL-HEIGHT / ALIGNED CARD ROWS ====================
+       Makes every st.columns() row stretch its columns to equal height, and
+       keeps the button that follows a card pinned to the same position
+       across all columns in the row - fixes uneven card heights and
+       misaligned buttons in the Top-3 Recommendations, Stream Comparison,
+       and every other card grid in the app. */
+    div[data-testid="stHorizontalBlock"] {
+        align-items: stretch;
+        gap: var(--space-sm);
+    }
+    div[data-testid="column"] {
+        display: flex;
+        flex-direction: column;
+    }
+    div[data-testid="column"] > div {
+        height: 100%;
+    }
+    div[data-testid="column"] .stButton {
+        margin-top: auto;
+    }
+
+    /* Top-3 Recommendation cards: identical fixed height regardless of how
+       long the AI-generated explanation text is, with clamped text so
+       long content never overflows or breaks the card grid. */
+    .rec-card {
+        height: 300px;
+        display: flex;
+        flex-direction: column;
+        margin: 0 0 var(--space-sm) 0;
+    }
+    .rec-card h3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        min-height: 2.6em;
+    }
+    .rec-card p {
+        display: -webkit-box;
+        -webkit-line-clamp: 5;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        flex: 1;
+        margin: 0;
+    }
+
+    /* Stream Comparison cards (Strengths / Opportunities on the AI Analysis
+       page): equal height regardless of how many bullet items the AI
+       returns, without clipping any content. */
+    .compare-card {
+        min-height: 220px;
+        display: flex;
+        flex-direction: column;
+        margin: 0 0 var(--space-sm) 0;
+    }
+
+    /* ==================== CARD GRIDS (Career Opportunities, Learning
+       Resources, and similar item-card collections) ====================
+       A real CSS Grid instead of Streamlit columns reused via modulo -
+       every cell in a row is automatically the same width and height
+       (CSS Grid's default align-items/justify-items is "stretch"), and
+       items always flow left-to-right, top-to-bottom in true rows. */
+    .card-grid {
+        display: grid;
+        gap: var(--space-sm);
+        margin: 0 0 var(--space-sm) 0;
+    }
+    .card-grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .card-grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .card-grid .opportunity-card {
+        margin: 0;
+        min-height: 110px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    .card-grid .opp-label {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    @media (max-width: 1024px) {
+        .card-grid-4, .card-grid-3 { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+        .card-grid-4, .card-grid-3 { grid-template-columns: 1fr; }
+    }
+
+    /* ==================== PERSONALITY CHOICE CARDS ====================
+       "Take Personality Assessment" / "Skip Personality Assessment": a
+       fixed (not min) height ties both cards to the exact same top and
+       bottom position regardless of description text length, so the two
+       action buttons below them always start at the same vertical point. */
+    .personality-choice-card {
+        height: 350px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: stretch;
+        overflow: hidden;
+    }
+    .personality-choice-card h3 {
+        margin: 0.4rem 0;
+    }
+    .personality-choice-card p {
+        margin: 0.3rem 0;
+    }
+
+    /* ==================== EXPANDERS, ALERTS, DIVIDERS, PROGRESS ==================== */
+    [data-testid="stExpander"] {
+        border-radius: var(--radius-md) !important;
+        overflow: hidden;
+        margin-bottom: var(--space-sm);
+    }
+    div[data-testid="stAlert"] {
+        border-radius: var(--radius-sm) !important;
+    }
+    hr {
+        margin: var(--space-md) 0 !important;
+        border: none;
+        border-top: 1px solid rgba(0,0,0,0.08);
+    }
+    .stProgress > div > div > div > div {
+        background: var(--brand-gradient) !important;
+        border-radius: 10px !important;
+    }
+    .stProgress > div > div {
+        border-radius: 10px !important;
+    }
+
+    /* Tighter, more consistent top-level page padding */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+    }
+
+    /* ==================== RESPONSIVE: TABLET / LAPTOP ==================== */
+    @media (max-width: 1024px) {
+        .app-title { font-size: 2.1rem; }
+        .welcome-heading { font-size: 1.7rem; }
+        .main-card { padding: 1.6rem; }
+    }
+    @media (max-width: 768px) {
+        .main-card { padding: 1.2rem; border-radius: 20px; }
+        .welcome-heading { font-size: 1.4rem; }
+        .app-title { font-size: 1.8rem; }
+        .rec-card { height: auto; min-height: 260px; }
+        .rec-card p { -webkit-line-clamp: 6; }
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -490,6 +875,38 @@ if 'ai_role_detail' not in st.session_state:
     st.session_state.ai_role_detail = None
 if 'ai_role_detail_status' not in st.session_state:
     st.session_state.ai_role_detail_status = None
+# ---- AI Help Center state ----
+if 'help_return_page' not in st.session_state:
+    st.session_state.help_return_page = 'welcome'
+if 'ai_help_guide' not in st.session_state:
+    st.session_state.ai_help_guide = None
+if 'ai_help_guide_status' not in st.session_state:
+    st.session_state.ai_help_guide_status = None
+if 'help_search_query' not in st.session_state:
+    st.session_state.help_search_query = ""
+if 'help_search_answer' not in st.session_state:
+    st.session_state.help_search_answer = None
+if 'help_search_status' not in st.session_state:
+    st.session_state.help_search_status = None
+# ==================== AI CONTENT CACHING POLICY ====================
+# Every piece of AI-generated content in this app is stored in
+# st.session_state and is treated as a CACHE, not regenerated on every
+# Streamlit rerun/page navigation. A fresh Gemini call is made ONLY when:
+#   (a) the underlying questionnaire (and, where relevant, personality)
+#       responses change, or
+#   (b) the user selects a different career/stream/role.
+# This is enforced by comparing a content-hash "fingerprint" of the
+# relevant inputs (make_response_fingerprint) against the fingerprint
+# stored alongside the cached result the last time it was generated - if
+# they still match, the cached value in session_state is reused as-is and
+# NO API call is made. Cached content + fingerprint pairs:
+#   - ai_recommendation / ai_top_streams   <-> ai_recommendation_fingerprint
+#   - ai_analysis (Strengths/Opportunities) <-> ai_analysis_fingerprint
+#   - career_overview (+ related roles)     <-> career_overview_fingerprint
+#   - ai_deep_dive (Skills, Education Path,
+#     Certifications, Learning Resources,
+#     Career Opportunities)                 <-> ai_deep_dive_fingerprint
+#   - ai_role_detail (Career Detail page)   <-> ai_role_detail_fingerprint
 # Fingerprints used to detect whether the underlying questionnaire/personality
 # answers have changed - Gemini is only re-called when the relevant
 # fingerprint no longer matches the cached one (caching layer below).
@@ -515,6 +932,16 @@ if 'ai_deep_dive_error' not in st.session_state:
     st.session_state.ai_deep_dive_error = None
 if 'ai_role_detail_error' not in st.session_state:
     st.session_state.ai_role_detail_error = None
+if 'career_overview' not in st.session_state:
+    st.session_state.career_overview = None
+if 'career_overview_status' not in st.session_state:
+    st.session_state.career_overview_status = None
+if 'career_overview_error' not in st.session_state:
+    st.session_state.career_overview_error = None
+if 'career_overview_fingerprint' not in st.session_state:
+    st.session_state.career_overview_fingerprint = None
+if 'role_detail_return_page' not in st.session_state:
+    st.session_state.role_detail_return_page = 'report'
 
 # Load JSON files
 @st.cache_data
@@ -951,9 +1378,32 @@ def generate_pdf_report():
         pdf_section("Technical Skills", deep_dive.get("technical_skills", []))
         pdf_section("Soft Skills", deep_dive.get("soft_skills", []))
         pdf_section("Major Hiring Cities in India", deep_dive.get("major_hiring_cities_india", []))
-        pdf_section("Education Path", deep_dive.get("education_path", ""))
-        pdf_section("Certifications", deep_dive.get("certifications", []))
-        pdf_section("Learning Resources", deep_dive.get("learning_resources", []))
+        pdf_section("Major Industry Hubs", deep_dive.get("major_industry_hubs", []))
+        pdf_section("Top Hiring Industries", deep_dive.get("top_hiring_industries", []))
+
+        # education_path is a structured object, shaped differently for
+        # school vs college students - render each sub-field as its own
+        # mini-section instead of dumping the raw dict.
+        education_path = deep_dive.get("education_path", {}) or {}
+        if st.session_state.user_type == 'school':
+            pdf_section("Recommended Stream", education_path.get("recommended_stream", ""))
+            pdf_section("Undergraduate Degree", education_path.get("undergraduate_degree", ""))
+            pdf_section("Higher Studies", education_path.get("higher_studies", ""))
+            pdf_section("Certifications (Education Path)", education_path.get("certifications", []))
+        else:
+            pdf_section("Higher Education Options", education_path.get("higher_education_options", ""))
+            pdf_section("Professional Certifications", education_path.get("professional_certifications", []))
+            pdf_section("Specializations", education_path.get("specializations", []))
+            pdf_section("Career Advancement", education_path.get("career_advancement", ""))
+
+        # learning_resources is also a structured object with 5 categories.
+        learning_resources = deep_dive.get("learning_resources", {}) or {}
+        pdf_section("Recommended Certifications", learning_resources.get("recommended_certifications", []))
+        pdf_section("Free Learning Resources", learning_resources.get("free_learning_resources", []))
+        pdf_section("Online Platforms", learning_resources.get("online_platforms", []))
+        pdf_section("Books", learning_resources.get("books", []))
+        pdf_section("Communities", learning_resources.get("communities", []))
+
         pdf_section("Related Career Roles", deep_dive.get("related_career_roles", []))
 
     # Save to temporary file
@@ -1399,6 +1849,270 @@ def _log_gemini_debug_info(label, response, response_text):
               f"Consider raising max_output_tokens for this call.")
 
 
+# ==================== AI HELP CENTER (GEMINI-POWERED, NO STATIC CONTENT) ====================
+# Everything shown on the Help page - the overview, the school-vs-college
+# explanation, the step-by-step walkthrough, the FAQ, the tips, and answers
+# to free-text search questions - is generated live by Gemini. Nothing here
+# is a hardcoded string, JSON manual, or static template; this section only
+# describes the app's CURRENT structure/flow to Gemini so it can write the
+# guide itself. If new pages/features are added to `APP_STRUCTURE_CONTEXT`
+# below, the AI guide automatically reflects them on the next generation -
+# no manual help-text edits required.
+
+APP_STRUCTURE_CONTEXT = """
+APP NAME: CoActions - AI Career Guidance Platform
+
+WHAT IT DOES: CoActions is a Streamlit web app that uses Google's Gemini AI
+to give students personalized career guidance. There are no static/fixed
+career lists - every recommendation, analysis, and report is generated live
+by AI based on what the individual student answers.
+
+WHO USES IT: Students in two groups -
+  - School Students: Classes/Grades 9th, 10th, 11th, 12th.
+  - College/Undergraduate Students: 1st, 2nd, 3rd, 4th Year College.
+The questionnaire and AI prompts adapt automatically depending on which
+group the student belongs to (school students get guidance framed around
+subject streams and higher-education choices; college students get
+guidance framed around specialization, internships, and job readiness).
+
+FULL APP FLOW (in order):
+1. Registration - student enters Full Name, Age, City, State, Institution,
+   and Current Grade/Year.
+2. The app automatically detects Student Type (School vs College) from the
+   selected grade/year.
+3. Career Questionnaire - the student answers a series of interest/aptitude
+   questions relevant to their student type.
+4. Personality Assessment (optional) - the student may choose to take an
+   additional personality assessment for deeper insight, or skip it.
+5. Top 3 AI Career Recommendations - Gemini analyzes all responses and
+   generates the top 3 best-fit career streams with match percentages and
+   reasoning.
+6. The student selects one recommended career stream to explore further.
+7. AI Analysis - Gemini generates a personalized Strengths & Opportunities
+   analysis for the student based on their answers.
+8. Career Overview - AI-generated overview of what that career involves.
+9. Technical Skills - AI-generated list of technical skills needed.
+10. Soft Skills - AI-generated list of soft skills needed.
+11. Hiring Cities - AI-generated list of Indian cities with strong hiring
+    activity for that career.
+12. Industry Hubs - AI-generated list of industry hub regions for that
+    career.
+13. Education Path - AI-generated recommended education path/degrees.
+14. Certifications - AI-generated relevant certifications.
+15. Free Learning Resources - AI-generated free resources to start
+    learning.
+16. Related Career Roles - AI-generated list of related/adjacent roles the
+    student can also explore.
+17. Detailed Career Information - the student can click into any related
+    role to see AI-generated detailed information about it.
+18. AI Career Report - the student can generate and download a premium,
+    multi-page PDF career report summarizing everything (charts, SWOT
+    analysis, skill-gap analysis, and a learning roadmap), plus an offline
+    AI Learning Roadmap with stage-by-stage checkboxes they can track
+    progress against.
+
+OTHER NAVIGATION: Home (restarts the assessment), About (what CoActions
+is), Contact (support email/website), Help (this AI-powered help center).
+
+IMPORTANT CONTEXT FOR YOUR ANSWERS: Every recommendation, analysis, skill
+list, roadmap, and report in this app is generated dynamically by Gemini AI
+based on the student's own answers - nothing is a fixed/static lookup
+table. Make that clear where relevant. Keep answers encouraging, clear, and
+written for a student audience (avoid overly technical jargon). Do not
+invent features that are not listed above.
+"""
+
+
+def _build_help_guide_prompt():
+    """
+    Build the prompt asking Gemini to generate the FULL Help Center guide
+    (overview, audience, school-vs-college distinction, step-by-step guide,
+    FAQ, and tips) as a single structured JSON object, based on the current
+    app structure described in APP_STRUCTURE_CONTEXT.
+    """
+    return f"""You are the in-app AI assistant for the CoActions career
+guidance platform. Using ONLY the app structure described below, write a
+friendly, clear, student-facing Help Guide.
+
+{APP_STRUCTURE_CONTEXT}
+
+Return ONLY a single JSON object (no markdown fences, no extra text) with
+EXACTLY this shape:
+{{
+  "app_overview": "<2-4 sentences explaining what CoActions does>",
+  "who_can_use": "<1-3 sentences on who this app is for>",
+  "school_vs_college": "<2-4 sentences clearly explaining the difference between how School Students and College Students use the app>",
+  "steps": [
+    {{"step_number": 1, "title": "<short step title>", "description": "<1-2 sentence explanation of this step>"}}
+    ... one entry for EVERY step in the FULL APP FLOW above, in order, same count (18 steps) ...
+  ],
+  "faqs": [
+    {{"question": "<question>", "answer": "<clear 1-3 sentence answer>"}}
+    ... at least 8 FAQ entries, covering things like: how recommendations are generated, whether the assessment can be retaken, whether the personality assessment is mandatory, what happens if it's skipped, whether recommendations are truly AI-generated, whether both school and college students can use the app, whether certifications/roadmaps are personalized, and how career roles are selected ...
+  ],
+  "tips": [
+    "<short actionable tip>"
+    ... at least 6 tips for getting the most useful AI recommendations (e.g. answering honestly, completing all questions, not rushing, reviewing all recommendations, exploring multiple paths, revisiting the assessment after gaining new skills) ...
+  ]
+}}
+
+Do not wrap the JSON in markdown code fences. Do not include any text
+before or after the JSON object."""
+
+
+def _validate_help_guide_json(data):
+    """
+    Validate + normalise the JSON Gemini returns for the full Help Guide.
+    Same pattern as the other validators in this file: raises ValueError on
+    a missing/malformed shape (which generate_validated_json treats as a
+    failure and retries once), otherwise returns a cleaned dict.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("Help guide response was not a JSON object.")
+
+    app_overview = str(data.get("app_overview", "")).strip()
+    who_can_use = str(data.get("who_can_use", "")).strip()
+    school_vs_college = str(data.get("school_vs_college", "")).strip()
+    if not app_overview or not who_can_use or not school_vs_college:
+        raise ValueError("Help guide response is missing overview/audience text.")
+
+    raw_steps = data.get("steps")
+    if not isinstance(raw_steps, list) or len(raw_steps) < 5:
+        raise ValueError("Help guide response did not contain a usable step-by-step guide.")
+    steps = []
+    for i, item in enumerate(raw_steps, start=1):
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title", "")).strip()
+        description = str(item.get("description", "")).strip()
+        if not title:
+            continue
+        try:
+            step_number = int(item.get("step_number", i))
+        except (TypeError, ValueError):
+            step_number = i
+        steps.append({"step_number": step_number, "title": title, "description": description})
+    if len(steps) < 5:
+        raise ValueError("Help guide response had too few valid steps.")
+
+    raw_faqs = data.get("faqs")
+    if not isinstance(raw_faqs, list) or len(raw_faqs) < 3:
+        raise ValueError("Help guide response did not contain a usable FAQ section.")
+    faqs = []
+    for item in raw_faqs:
+        if not isinstance(item, dict):
+            continue
+        question = str(item.get("question", "")).strip()
+        answer = str(item.get("answer", "")).strip()
+        if question and answer:
+            faqs.append({"question": question, "answer": answer})
+    if len(faqs) < 3:
+        raise ValueError("Help guide response had too few valid FAQ entries.")
+
+    raw_tips = data.get("tips")
+    if not isinstance(raw_tips, list):
+        raise ValueError("Help guide response did not contain a tips list.")
+    tips = [str(t).strip() for t in raw_tips if str(t).strip()]
+    if len(tips) < 3:
+        raise ValueError("Help guide response had too few valid tips.")
+
+    return {
+        "app_overview": app_overview,
+        "who_can_use": who_can_use,
+        "school_vs_college": school_vs_college,
+        "steps": steps,
+        "faqs": faqs,
+        "tips": tips,
+    }
+
+
+def generate_ai_help_guide(force_refresh=False):
+    """
+    Generate (or reuse the cached) full AI Help Guide.
+
+    Follows the same caching policy as the rest of the app's AI content:
+    the guide is generated once and reused across reruns/navigation so
+    opening the Help page repeatedly does not repeatedly call Gemini. Pass
+    force_refresh=True (from the "Regenerate Guide" button) to force a
+    fresh Gemini call.
+    """
+    if not force_refresh and st.session_state.get("ai_help_guide"):
+        return {"status": "success"}
+
+    try:
+        model = get_gemini_client()
+    except GeminiConfigError as e:
+        st.session_state.ai_help_guide = None
+        st.session_state.ai_help_guide_status = str(e)
+        return {"status": "error", "message": str(e)}
+
+    prompt = _build_help_guide_prompt()
+    data, _raw = generate_validated_json(
+        model,
+        prompt,
+        max_output_tokens=4096,
+        label="AI Help Guide",
+        validator=_validate_help_guide_json,
+    )
+
+    if data is None:
+        st.session_state.ai_help_guide = None
+        st.session_state.ai_help_guide_status = (
+            "The AI Help Guide is temporarily unavailable. Please try again in a moment."
+        )
+        return {"status": "error", "message": st.session_state.ai_help_guide_status}
+
+    st.session_state.ai_help_guide = data
+    st.session_state.ai_help_guide_status = None
+    return {"status": "success"}
+
+
+def generate_help_search_answer(user_question):
+    """
+    Answer a free-text question typed into the Help page search box, using
+    Gemini and the same app-structure context as the full guide. This is a
+    plain-text (not JSON) call since the output is a single conversational
+    answer, not structured data.
+    """
+    user_question = (user_question or "").strip()
+    if not user_question:
+        return {"status": "error", "message": "Please type a question first."}
+
+    try:
+        model = get_gemini_client()
+    except GeminiConfigError as e:
+        return {"status": "error", "message": str(e)}
+
+    prompt = f"""You are the in-app AI assistant for the CoActions career
+guidance platform. Using ONLY the app structure described below, answer the
+student's question clearly and concisely (2-5 sentences, plain text, no
+markdown headers, no JSON).
+
+{APP_STRUCTURE_CONTEXT}
+
+STUDENT QUESTION: {user_question}
+
+Answer the question directly. If the question is unrelated to using this
+app, politely say you can only help with questions about using CoActions."""
+
+    try:
+        response = model.generate_content(
+            prompt,
+            generation_config={
+                "max_output_tokens": 1024,
+                "thinking_config": {"thinking_budget": 0},
+            },
+        )
+        answer_text = (getattr(response, "text", "") or "").strip()
+    except Exception as e:
+        return {"status": "error", "message": f"Gemini call failed: {str(e)}"}
+
+    if not answer_text:
+        return {"status": "error", "message": "AI did not return an answer. Please try again."}
+
+    return {"status": "success", "answer": answer_text}
+
+
 # ==================== AI PROMPT BUILDER ====================
 
 def generate_ai_prompt(student_details, questionnaire_responses, personality_responses, user_type):
@@ -1716,19 +2430,53 @@ def generate_ai_recommendation(student_details, questionnaire_responses, persona
 
 # ==================== AI ANALYSIS (STRENGTHS + OPPORTUNITIES ONLY) ====================
 
-def generate_ai_analysis_prompt(student_details, questionnaire_responses, stream, user_type):
+def generate_ai_analysis_prompt(student_details, questionnaire_responses, personality_responses, stream, user_type):
     """
     Build the prompt for the AI Analysis page. Gemini must return ONLY
     Strengths and Opportunities (never Weaknesses or Threats), personalized
-    to the student's questionnaire responses and the stream they selected.
+    to the student's details, questionnaire responses, personality
+    responses, and the stream they selected.
     """
     name = student_details.get('name', 'The student')
+    age = student_details.get('age', 'Not specified')
+    institution = student_details.get('institution', 'Not specified')
+    grade = student_details.get('grade', 'Not specified')
     education_level = "School Student" if user_type == 'school' else "College Student"
 
     questionnaire_responses = questionnaire_responses or {}
-    questionnaire_lines = "\n".join(
-        f"- Question {q_id}: {answer}" for q_id, answer in questionnaire_responses.items()
-    ) or "No questionnaire responses provided."
+    personality_responses = personality_responses or {}
+
+    # Reuse the same compact interest-score summary approach used in
+    # generate_ai_prompt(), rather than dumping raw Q&A pairs, so this
+    # stays token-efficient while still carrying the same decision signal.
+    categories_data = st.session_state.get('categories_data') or {}
+    scored_categories = sorted(
+        (
+            (cat.get('name') or cat.get('category_name') or cat_id, round(cat.get('score', 0)))
+            for cat_id, cat in categories_data.items()
+            if cat.get('question_count', 0) > 0
+        ),
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    if scored_categories:
+        questionnaire_lines = "\n".join(f"{cat_name}: {score}" for cat_name, score in scored_categories[:6])
+    elif questionnaire_responses:
+        questionnaire_lines = f"{len(questionnaire_responses)} questionnaire questions answered (scores unavailable)."
+    else:
+        questionnaire_lines = "No questionnaire responses provided."
+
+    # Compact personality summary, same pattern as generate_ai_prompt().
+    pathway = st.session_state.get('personality_pathway')
+    if pathway:
+        traits = "\n".join(f"- {t}" for t in pathway.get('strengths', [])[:4])
+        personality_summary = f"{pathway.get('title', 'N/A')} ({pathway.get('match_percentage', 0)}% match)"
+        if traits:
+            personality_summary += f"\nTop Personality Traits:\n{traits}"
+    elif personality_responses:
+        personality_summary = f"{len(personality_responses)} personality questions answered (summary unavailable)."
+    else:
+        personality_summary = "Not taken (optional)."
 
     if user_type == 'school':
         depth_instruction = (
@@ -1750,15 +2498,21 @@ career stream "{stream}" from your earlier recommendations.
 
 STUDENT INFORMATION
 - Name: {name}
+- Age: {age}
+- Institution: {institution}
+- Grade/Year: {grade}
 - Education Level: {education_level}
 
-CAREER QUESTIONNAIRE RESPONSES
+CAREER QUESTIONNAIRE RESPONSES (INTEREST SCORES 0-100)
 {questionnaire_lines}
+
+PERSONALITY / LEARNING STYLE
+{personality_summary}
 
 TASK
 Generate a personalized AI Analysis for this student about the "{stream}" stream,
-based ONLY on their questionnaire responses above. The analysis must include
-EXACTLY two sections:
+based on their student information, questionnaire responses, and personality
+profile above. The analysis must include EXACTLY two sections:
 1. Strengths - personal strengths/traits this student shows (from their
    responses) that support success in this stream.
 2. Opportunities - opportunities this stream and the student's profile open up
@@ -1807,10 +2561,13 @@ def _validate_analysis_schema(data):
     }
 
 
-def generate_ai_analysis(student_details, questionnaire_responses, stream, user_type):
+def generate_ai_analysis(student_details, questionnaire_responses, personality_responses, stream, user_type):
     """
     Call Gemini to produce the Strengths/Opportunities AI Analysis and store
     the parsed result in st.session_state.ai_analysis.
+
+    Personalized using student details, questionnaire responses,
+    personality responses, and the selected career stream.
 
     RELIABILITY: uses generate_validated_json, which already (a) retries
     the Gemini call exactly ONCE if JSON parsing OR schema validation
@@ -1820,7 +2577,7 @@ def generate_ai_analysis(student_details, questionnaire_responses, stream, user_
     for an expandable debug section; the message returned to the UI is
     always a short, friendly, non-technical sentence.
     """
-    prompt = generate_ai_analysis_prompt(student_details, questionnaire_responses, stream, user_type)
+    prompt = generate_ai_analysis_prompt(student_details, questionnaire_responses, personality_responses, stream, user_type)
 
     try:
         model = get_gemini_client()
@@ -1859,6 +2616,201 @@ def generate_ai_analysis(student_details, questionnaire_responses, stream, user_
         }
 
 
+# ==================== CAREER OVERVIEW (AI-GENERATED, SHOWN ON AI ANALYSIS PAGE) ====================
+
+def generate_career_overview_prompt(student_details, questionnaire_responses, personality_responses, stream, user_type):
+    """
+    Build the prompt for the Career Overview card shown right after the
+    Strengths/Opportunities AI Analysis. Entirely AI-generated - no
+    hardcoded or JSON-file-based career descriptions of any kind.
+    """
+    name = student_details.get('name', 'The student')
+    age = student_details.get('age', 'Not specified')
+    grade = student_details.get('grade', 'Not specified')
+    education_level = "School Student" if user_type == 'school' else "College Student"
+
+    questionnaire_responses = questionnaire_responses or {}
+    personality_responses = personality_responses or {}
+
+    categories_data = st.session_state.get('categories_data') or {}
+    scored_categories = sorted(
+        (
+            (cat.get('name') or cat.get('category_name') or cat_id, round(cat.get('score', 0)))
+            for cat_id, cat in categories_data.items()
+            if cat.get('question_count', 0) > 0
+        ),
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    if scored_categories:
+        questionnaire_lines = "\n".join(f"{cat_name}: {score}" for cat_name, score in scored_categories[:6])
+    elif questionnaire_responses:
+        questionnaire_lines = f"{len(questionnaire_responses)} questionnaire questions answered (scores unavailable)."
+    else:
+        questionnaire_lines = "No questionnaire responses provided."
+
+    pathway = st.session_state.get('personality_pathway')
+    if pathway:
+        traits = "\n".join(f"- {t}" for t in pathway.get('strengths', [])[:4])
+        personality_summary = f"{pathway.get('title', 'N/A')} ({pathway.get('match_percentage', 0)}% match)"
+        if traits:
+            personality_summary += f"\nTop Personality Traits:\n{traits}"
+    elif personality_responses:
+        personality_summary = f"{len(personality_responses)} personality questions answered (summary unavailable)."
+    else:
+        personality_summary = "Not taken (optional)."
+
+    if user_type == 'school':
+        depth_instruction = (
+            "This is a SCHOOL STUDENT: use SIMPLE, jargon-free, everyday language "
+            "with short sentences; explain every concept simply, as if introducing "
+            "the career for the very first time."
+        )
+    else:
+        depth_instruction = (
+            "This is a COLLEGE STUDENT: use PROFESSIONAL, industry-level language; "
+            "reference real specializations, tools, and current market context "
+            "where relevant."
+        )
+
+    prompt = f"""You are an expert career counsellor AI. The student below selected the
+career stream "{stream}" from your earlier recommendations, and has already
+received a Strengths/Opportunities analysis for it.
+
+STUDENT INFORMATION
+- Name: {name}
+- Age: {age}
+- Education Level: {education_level} (Grade/Year: {grade})
+
+CAREER QUESTIONNAIRE RESPONSES (INTEREST SCORES 0-100)
+{questionnaire_lines}
+
+PERSONALITY / LEARNING STYLE
+{personality_summary}
+
+TASK
+Generate a complete, fresh Career Overview for "{stream}" personalized to this
+student. Do NOT use any pre-existing/manual database or JSON file of career
+descriptions - generate everything freshly for this student. {depth_instruction}
+
+Generate EXACTLY these six sections:
+1. career_description - what this career/stream actually involves, in a clear paragraph.
+2. why_matches - specifically why this career matches THIS student, referencing their interest scores and/or personality traits above.
+3. daily_responsibilities - a list of typical day-to-day responsibilities/activities in this career.
+4. future_scope - a short paragraph on the growth/demand outlook for this career.
+5. career_growth - a short paragraph or list describing how a person typically grows/advances in this career over time.
+6. related_career_roles - a list of 2 to 4 GROUPS of related career roles within/adjacent to "{stream}" that this student could explore, dynamically generated (do NOT use any predefined/static list). Each group is an object with:
+   - category: a short, natural category name for the group (e.g. "Technology & Engineering", "Research & Analytics") - generate a category name that actually fits this stream, not a fixed template.
+   - roles: a list of 4 to 6 specific job-title roles in that category this student could pursue.
+
+OUTPUT FORMAT - respond with ONLY valid JSON, no markdown fences, no preamble:
+
+{{
+  "career_description": "string",
+  "why_matches": "string",
+  "daily_responsibilities": ["string", "..."],
+  "future_scope": "string",
+  "career_growth": "string",
+  "related_career_roles": [
+    {{"category": "string", "roles": ["string", "..."]}}
+  ]
+}}
+
+Every string value must be a single line with no literal line breaks (use
+spaces instead). Output JSON only."""
+
+    return prompt
+
+
+def _validate_career_overview_schema(data):
+    """
+    Schema validator for the Career Overview response, passed into
+    generate_validated_json so an incomplete response triggers the same
+    bounded single automatic retry as a JSON parse failure.
+    """
+    required_keys = [
+        "career_description", "why_matches", "daily_responsibilities",
+        "future_scope", "career_growth", "related_career_roles",
+    ]
+    if not isinstance(data, dict) or not all(k in data for k in required_keys):
+        raise ValueError("Career Overview response missing one or more required sections.")
+
+    responsibilities = data.get("daily_responsibilities", [])
+    if not isinstance(responsibilities, list) or len(responsibilities) == 0:
+        raise ValueError("Career Overview response missing daily_responsibilities.")
+
+    groups = data.get("related_career_roles", [])
+    if not isinstance(groups, list) or len(groups) == 0:
+        raise ValueError("Career Overview response missing related_career_roles groups.")
+    cleaned_groups = []
+    for g in groups:
+        if not isinstance(g, dict):
+            continue
+        category = str(g.get("category", "")).strip()
+        roles = [str(r).strip() for r in (g.get("roles") or []) if str(r).strip()]
+        if category and roles:
+            cleaned_groups.append({"category": category, "roles": roles})
+    if not cleaned_groups:
+        raise ValueError("Career Overview response has no valid related_career_roles groups.")
+
+    data["daily_responsibilities"] = [str(r).strip() for r in responsibilities if str(r).strip()]
+    data["related_career_roles"] = cleaned_groups
+    return data
+
+
+def generate_career_overview(student_details, questionnaire_responses, personality_responses, stream, user_type):
+    """
+    Call Gemini to produce the Career Overview card and store the parsed
+    result in st.session_state.career_overview.
+
+    Personalized using student details, questionnaire responses,
+    personality responses, and the selected career stream - entirely
+    AI-generated, no JSON files or hardcoded descriptions.
+
+    RELIABILITY: same pattern as generate_ai_analysis / generate_ai_deep_dive -
+    generate_validated_json retries once on parse/schema failure, technical
+    detail goes to career_overview_error, and the UI message stays short and
+    friendly.
+    """
+    prompt = generate_career_overview_prompt(student_details, questionnaire_responses, personality_responses, stream, user_type)
+
+    try:
+        model = get_gemini_client()
+    except GeminiConfigError as e:
+        st.session_state.career_overview = None
+        st.session_state.career_overview_error = str(e)
+        return {"status": "error", "message": "Career Overview is temporarily unavailable. Please try again later."}
+
+    try:
+        data, response_text = generate_validated_json(
+            model, prompt, max_output_tokens=3072,
+            label="generate_career_overview",
+            validator=_validate_career_overview_schema,
+        )
+
+        if data is None:
+            st.session_state.career_overview = None
+            st.session_state.career_overview_error = (
+                "Gemini's response was empty, invalid JSON, or missing "
+                "required sections, even after one automatic retry."
+            )
+            return {
+                "status": "error",
+                "message": "Career Overview could not be generated right now. Please try again later.",
+            }
+
+        st.session_state.career_overview = data
+        st.session_state.career_overview_error = None
+        return {"status": "success", "message": "Career Overview generated."}
+    except Exception as e:
+        st.session_state.career_overview = None
+        st.session_state.career_overview_error = str(e)
+        return {
+            "status": "error",
+            "message": "Something went wrong while generating the Career Overview. Please try again later.",
+        }
+
+
 # ==================== DEEP-DIVE CAREER REPORT (FULL AI REPORT) ====================
 
 def generate_ai_deep_dive_prompt(student_details, questionnaire_responses, stream, user_type):
@@ -1870,9 +2822,26 @@ def generate_ai_deep_dive_prompt(student_details, questionnaire_responses, strea
     education_level = "School Student" if user_type == 'school' else "College Student"
 
     questionnaire_responses = questionnaire_responses or {}
-    questionnaire_lines = "\n".join(
-        f"- Question {q_id}: {answer}" for q_id, answer in questionnaire_responses.items()
-    ) or "No questionnaire responses provided."
+
+    # Compact interest-score summary (same pattern as the other AI calls)
+    # so skills/opportunities are personalized to the student's actual
+    # questionnaire signal rather than raw, token-heavy Q&A pairs.
+    categories_data = st.session_state.get('categories_data') or {}
+    scored_categories = sorted(
+        (
+            (cat.get('name') or cat.get('category_name') or cat_id, round(cat.get('score', 0)))
+            for cat_id, cat in categories_data.items()
+            if cat.get('question_count', 0) > 0
+        ),
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    if scored_categories:
+        questionnaire_lines = "\n".join(f"{cat_name}: {score}" for cat_name, score in scored_categories[:6])
+    elif questionnaire_responses:
+        questionnaire_lines = f"{len(questionnaire_responses)} questionnaire questions answered (scores unavailable)."
+    else:
+        questionnaire_lines = "No questionnaire responses provided."
 
     if user_type == 'school':
         depth_instruction = (
@@ -1881,6 +2850,11 @@ def generate_ai_deep_dive_prompt(student_details, questionnaire_responses, strea
             "(subjects to study, basic awareness of the field, stream selection) "
             "rather than deep professional detail; explain every concept simply."
         )
+        education_path_instruction = """9. education_path - an OBJECT (not a string) describing this student's education roadmap into "{stream}", with EXACTLY these keys, each a short, simple, personalized string:
+   - recommended_stream: the school stream (e.g. Science/Commerce/Arts/Vocational) and subject combination recommended for this student.
+   - undergraduate_degree: the undergraduate degree(s) this student should pursue after school for this career.
+   - higher_studies: postgraduate/higher-studies options relevant to this career, explained simply.
+   - certifications: a list of 3 to 5 beginner-friendly certifications/courses a school student could start with.""".replace("{stream}", stream)
     else:
         depth_instruction = (
             "This is a COLLEGE STUDENT: use PROFESSIONAL, industry-appropriate "
@@ -1889,6 +2863,11 @@ def generate_ai_deep_dive_prompt(student_details, questionnaire_responses, strea
             "ADVANCED CAREER GUIDANCE referencing real-world skills, tools, "
             "certifications, and the current job market."
         )
+        education_path_instruction = """9. education_path - an OBJECT (not a string) describing this student's education/career roadmap into "{stream}", with EXACTLY these keys, each a professional, industry-level string:
+   - higher_education_options: postgraduate/advanced degree options relevant to this career (e.g. specific Master's programs, MBA routes, doctoral paths where relevant).
+   - professional_certifications: a list of 4 to 6 industry-recognized professional certifications for this career.
+   - specializations: a list of 3 to 6 specific specializations/tracks within this career this student could pursue.
+   - career_advancement: a short paragraph describing typical career advancement/promotion path in this field.""".replace("{stream}", stream)
 
     prompt = f"""You are an expert career counsellor AI generating a complete career report
 for the stream "{stream}" for the student below.
@@ -1897,25 +2876,34 @@ STUDENT INFORMATION
 - Name: {name}
 - Education Level: {education_level}
 
-CAREER QUESTIONNAIRE RESPONSES
+CAREER QUESTIONNAIRE RESPONSES (INTEREST SCORES 0-100)
 {questionnaire_lines}
 
 {depth_instruction}
 
-Do NOT use any pre-existing/manual database - generate every field freshly
-and specifically for this student and stream. Do NOT include a "Software
-Skills" section under any name.
+Do NOT use any pre-existing/manual database, JSON file, or predefined/static
+list of any kind (education paths, certifications, or otherwise) - generate
+every field freshly and specifically for this student, their student type,
+and their selected career. Do NOT include a "Software Skills" section,
+field, or category under any name - it must not appear anywhere in your
+output.
 
 Generate EXACTLY these sections, each personalized to the student:
 1. career_overview - a short paragraph describing what this career stream involves.
 2. related_career_roles - a list of 5 to 8 specific job-title roles within this stream that this student could pursue (e.g. specific roles, not subfields).
 3. future_scope - a short paragraph on growth/demand outlook for this stream.
-4. technical_skills - a list of specific technical skills relevant to this stream.
-5. soft_skills - a list of soft skills relevant to this stream.
-6. major_hiring_cities_india - a list of major Indian cities where this stream has strong hiring demand.
-7. education_path - a short paragraph or list describing the typical education path into this stream in India.
-8. certifications - a list of relevant certifications/courses that strengthen this stream.
-9. learning_resources - a list of types of learning resources (e.g. courses, books, platforms) useful for this stream.
+4. technical_skills - a list of AT LEAST 8 specific technical skills required for this career, personalized to this student's questionnaire responses and student type.
+5. soft_skills - a list of AT LEAST 8 soft skills required for this career, personalized to this student's questionnaire responses and student type.
+6. major_hiring_cities_india - a list of 5 to 8 major Indian cities where this stream has strong hiring demand.
+7. major_industry_hubs - a list of 4 to 6 major industry hubs/clusters in India for this career (e.g. specific tech parks, industrial corridors, or regional clusters known for this field).
+8. top_hiring_industries - a list of 5 to 8 specific industries/sectors that actively hire for this career.
+{education_path_instruction}
+10. learning_resources - an OBJECT (not a list) with EXACTLY these keys, each personalized to "{stream}" and this student:
+   - recommended_certifications: a list of 4 to 6 certifications worth pursuing for this specific career (generated fresh - do not reuse any predefined/static certification list).
+   - free_learning_resources: a list of 4 to 6 specific FREE resources (e.g. named free courses, tutorials, YouTube channels, open courseware) relevant to this career.
+   - online_platforms: a list of 4 to 6 named online learning platforms well-suited to learning this career's skills.
+   - books: a list of 3 to 5 specific recommended books (title and author) relevant to this career.
+   - communities: a list of 3 to 5 specific communities, forums, or professional networks (e.g. named subreddits, Discord/Slack communities, professional associations) relevant to this career.
 
 OUTPUT FORMAT - respond with ONLY valid JSON, no markdown fences, no preamble:
 
@@ -1923,12 +2911,19 @@ OUTPUT FORMAT - respond with ONLY valid JSON, no markdown fences, no preamble:
   "career_overview": "string",
   "related_career_roles": ["string", "..."],
   "future_scope": "string",
-  "technical_skills": ["string", "..."],
-  "soft_skills": ["string", "..."],
+  "technical_skills": ["string", "..." (at least 8 items)],
+  "soft_skills": ["string", "..." (at least 8 items)],
   "major_hiring_cities_india": ["string", "..."],
-  "education_path": "string",
-  "certifications": ["string", "..."],
-  "learning_resources": ["string", "..."]
+  "major_industry_hubs": ["string", "..."],
+  "top_hiring_industries": ["string", "..."],
+  "education_path": {{ ... see keys above for this student's type ... }},
+  "learning_resources": {{
+    "recommended_certifications": ["string", "..."],
+    "free_learning_resources": ["string", "..."],
+    "online_platforms": ["string", "..."],
+    "books": ["string", "..."],
+    "communities": ["string", "..."]
+  }}
 }}
 
 Every string value must be a single line with no literal line breaks (use
@@ -1937,24 +2932,53 @@ spaces instead). Output JSON only."""
     return prompt
 
 
-def _validate_deep_dive_schema(data):
+def _validate_deep_dive_schema(data, user_type='school'):
     """
     Schema validator for the deep-dive report, passed into
-    generate_validated_json so a response missing required sections
-    triggers the same bounded single automatic retry as a JSON parse
-    failure, rather than only being caught after the fact with no retry.
+    generate_validated_json so a response missing required sections, or
+    with too few technical/soft skills, triggers the same bounded single
+    automatic retry as a JSON parse failure, rather than only being caught
+    after the fact with no retry.
+
+    education_path and learning_resources are now nested objects (not a
+    string/flat list) - this validates their required sub-keys too, with
+    the expected education_path keys depending on user_type (school vs
+    college), since the prompt asks for a different roadmap shape for each.
     """
     required_keys = [
         "career_overview", "related_career_roles", "future_scope", "technical_skills",
-        "soft_skills", "major_hiring_cities_india", "education_path", "certifications",
-        "learning_resources",
+        "soft_skills", "major_hiring_cities_india", "major_industry_hubs",
+        "top_hiring_industries", "education_path", "learning_resources",
     ]
     if not isinstance(data, dict) or not all(k in data for k in required_keys):
         raise ValueError("Deep-dive response missing one or more required sections.")
 
-    # Explicitly drop any "software_skills" field if the model adds it anyway.
+    technical_skills = data.get("technical_skills", [])
+    soft_skills = data.get("soft_skills", [])
+    if not isinstance(technical_skills, list) or not isinstance(soft_skills, list) \
+            or len(technical_skills) < 8 or len(soft_skills) < 8:
+        raise ValueError("Deep-dive response has fewer than 8 technical_skills or soft_skills.")
+
+    education_path = data.get("education_path")
+    if not isinstance(education_path, dict):
+        raise ValueError("education_path must be an object.")
+    if user_type == 'school':
+        required_edu_keys = ["recommended_stream", "undergraduate_degree", "higher_studies", "certifications"]
+    else:
+        required_edu_keys = ["higher_education_options", "professional_certifications", "specializations", "career_advancement"]
+    if not all(k in education_path for k in required_edu_keys):
+        raise ValueError(f"education_path missing required keys for user_type={user_type}.")
+
+    learning_resources = data.get("learning_resources")
+    required_lr_keys = ["recommended_certifications", "free_learning_resources", "online_platforms", "books", "communities"]
+    if not isinstance(learning_resources, dict) or not all(k in learning_resources for k in required_lr_keys):
+        raise ValueError("learning_resources missing required keys.")
+
+    # Explicitly drop any "software_skills" field if the model adds it anyway -
+    # it must never be displayed, under any name.
     data.pop("software_skills", None)
     return data
+
 
 
 def generate_ai_deep_dive(student_details, questionnaire_responses, stream, user_type):
@@ -1987,9 +3011,9 @@ def generate_ai_deep_dive(student_details, questionnaire_responses, stream, user
 
     try:
         data, response_text = generate_validated_json(
-            model, prompt, max_output_tokens=3072,
+            model, prompt, max_output_tokens=5120,
             label="generate_ai_deep_dive",
-            validator=_validate_deep_dive_schema,
+            validator=lambda d: _validate_deep_dive_schema(d, user_type=user_type),
         )
 
         if data is None:
@@ -2056,9 +3080,10 @@ Generate EXACTLY these sections for this role:
 3. educational_requirements - a list of typical educational qualifications needed for this role.
 4. job_responsibilities - a list of typical day-to-day responsibilities.
 5. required_skills - a list of skills (technical and soft) required for this role.
-6. future_job_growth - a short paragraph on the growth outlook/demand trend for this role.
+6. future_job_growth - a short paragraph on the CURRENT growth trend/trajectory for this role (how the role has been growing recently).
 7. industry_outlook - a short paragraph on the broader industry context this role sits in.
 8. top_hiring_companies - a list of types/examples of companies in India that hire for this role.
+9. future_demand - a short paragraph specifically forecasting FUTURE demand for this role over the next several years (distinct from future_job_growth - focus on forward-looking demand, emerging trends, and long-term outlook).
 
 OUTPUT FORMAT - respond with ONLY valid JSON, no markdown fences, no preamble:
 
@@ -2070,7 +3095,8 @@ OUTPUT FORMAT - respond with ONLY valid JSON, no markdown fences, no preamble:
   "required_skills": ["string", "..."],
   "future_job_growth": "string",
   "industry_outlook": "string",
-  "top_hiring_companies": ["string", "..."]
+  "top_hiring_companies": ["string", "..."],
+  "future_demand": "string"
 }}
 
 Every string value must be a single line with no literal line breaks (use spaces instead). Output JSON only."""
@@ -2088,7 +3114,7 @@ def _validate_role_detail_schema(data):
     required_keys = [
         "career_description", "salary_range_india", "educational_requirements",
         "job_responsibilities", "required_skills", "future_job_growth",
-        "industry_outlook", "top_hiring_companies",
+        "industry_outlook", "top_hiring_companies", "future_demand",
     ]
     if not isinstance(data, dict) or not all(k in data for k in required_keys):
         raise ValueError("Role detail response missing one or more required sections.")
@@ -2118,7 +3144,7 @@ def generate_ai_role_detail(student_details, role_name, stream, user_type):
 
     try:
         data, response_text = generate_validated_json(
-            model, prompt, max_output_tokens=2048,
+            model, prompt, max_output_tokens=2560,
             label="generate_ai_role_detail",
             validator=_validate_role_detail_schema,
         )
@@ -2160,29 +3186,159 @@ def get_user_type_from_grade(grade):
 
 # Header with menu
 def show_header():
-    col1, col2 = st.columns([2, 1])
+    col1, col2 = st.columns([1.3, 1.7])
     with col1:
-        st.markdown('<div class="app-title">CoActions</div>', unsafe_allow_html=True)
+        st.image("logo.png", width=200)
     with col2:
-        menu_col1, menu_col2, menu_col3 = st.columns(3)
-        with menu_col1:
-            if st.button("🏠 Home", key="menu_home", use_container_width=True):
-                # Reset all session state for home
-                for key in list(st.session_state.keys()):
-                    if key not in ['page', 'show_about', 'show_contact']:
-                        del st.session_state[key]
-                st.session_state.page = 'welcome'
-                st.session_state.show_about = False
-                st.session_state.show_contact = False
-                st.rerun()
-        with menu_col2:
-            if st.button("📖 About", key="menu_about", use_container_width=True):
-                st.session_state.show_about = True
-                st.session_state.show_contact = False
-        with menu_col3:
-            if st.button("📞 Contact", key="menu_contact", use_container_width=True):
-                st.session_state.show_contact = True
-                st.session_state.show_about = False
+        with st.container(key="header_menu_row"):
+            menu_col1, menu_col2, menu_col3, menu_col4 = st.columns(4)
+            with menu_col1:
+                if st.button("🏠 Home", key="menu_home", use_container_width=True):
+                    # Reset all session state for home
+                    for key in list(st.session_state.keys()):
+                        if key not in ['page', 'show_about', 'show_contact']:
+                            del st.session_state[key]
+                    st.session_state.page = 'welcome'
+                    st.session_state.show_about = False
+                    st.session_state.show_contact = False
+                    st.rerun()
+            with menu_col2:
+                if st.button("📖 About", key="menu_about", use_container_width=True):
+                    st.session_state.show_about = True
+                    st.session_state.show_contact = False
+            with menu_col3:
+                if st.button("📞 Contact", key="menu_contact", use_container_width=True):
+                    st.session_state.show_contact = True
+                    st.session_state.show_about = False
+            with menu_col4:
+                if st.button("❓ Help", key="menu_help", use_container_width=True):
+                    # Remember which page we came from so "Back" can return the
+                    # user to exactly where they were - Help never resets or
+                    # touches any other assessment/session data.
+                    if st.session_state.page != 'help':
+                        st.session_state.help_return_page = st.session_state.page
+                    st.session_state.page = 'help'
+                    st.rerun()
+
+def show_help():
+    """
+    AI-powered Help Center. Every word of content here (overview, audience,
+    step-by-step guide, FAQ, tips, and search answers) is generated live by
+    Gemini via generate_ai_help_guide() / generate_help_search_answer() -
+    nothing on this page is hardcoded text or a static JSON manual. Does
+    not touch or reset any other part of the app's session state.
+    """
+    show_header()
+
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+    st.markdown('<h1 class="welcome-heading">Help Center</h1>', unsafe_allow_html=True)
+    st.markdown(
+        '<p class="welcome-subheading">Your personal AI-generated guide to using CoActions</p>',
+        unsafe_allow_html=True,
+    )
+    st.markdown('<hr>', unsafe_allow_html=True)
+
+    st.markdown('<h3 class="section-title">Ask the AI Assistant</h3>', unsafe_allow_html=True)
+    search_col1, search_col2 = st.columns([4, 1])
+    with search_col1:
+        query = st.text_input(
+            "Ask a question about using CoActions",
+            value=st.session_state.help_search_query,
+            placeholder="e.g. How are recommendations generated?",
+            key="help_search_input",
+            label_visibility="collapsed",
+        )
+    with search_col2:
+        ask_clicked = st.button("Ask AI", key="help_ask_btn", use_container_width=True)
+
+    if ask_clicked:
+        st.session_state.help_search_query = query
+        with st.spinner("Gemini is thinking..."):
+            result = generate_help_search_answer(query)
+        if result["status"] == "success":
+            st.session_state.help_search_answer = result["answer"]
+            st.session_state.help_search_status = None
+        else:
+            st.session_state.help_search_answer = None
+            st.session_state.help_search_status = result["message"]
+
+    if st.session_state.help_search_status:
+        st.error(st.session_state.help_search_status)
+    if st.session_state.help_search_answer:
+        st.markdown(
+            "<div style=\"background:#EEF2FF; border-left:4px solid #667eea; border-radius:14px; padding:1.2rem; margin-top:0.5rem;\">"
+            "<p style=\"margin:0;\"><strong>AI Answer:</strong></p>"
+            "<p style=\"margin:0.5rem 0 0 0;\">" + st.session_state.help_search_answer + "</p>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown('<hr>', unsafe_allow_html=True)
+
+    if not st.session_state.ai_help_guide:
+        with st.spinner("Gemini is generating your personalized help guide..."):
+            generate_ai_help_guide()
+
+    regen_col1, regen_col2 = st.columns([5, 1])
+    with regen_col2:
+        if st.button("Regenerate", key="help_regenerate_btn", use_container_width=True):
+            with st.spinner("Regenerating your AI help guide..."):
+                generate_ai_help_guide(force_refresh=True)
+            st.rerun()
+
+    guide = st.session_state.ai_help_guide
+
+    if not guide:
+        st.error(st.session_state.ai_help_guide_status or "The AI Help Guide is temporarily unavailable.")
+    else:
+        st.markdown('<h3 class="section-title">About This App</h3>', unsafe_allow_html=True)
+        st.markdown(
+            "<div style=\"background:#FFF8F0; border-radius:20px; padding:1.5rem; margin-bottom:1rem;\">"
+            "<p><strong>What CoActions does:</strong> " + guide['app_overview'] + "</p>"
+            "<p><strong>Who it's for:</strong> " + guide['who_can_use'] + "</p>"
+            "<p><strong>School vs. College students:</strong> " + guide['school_vs_college'] + "</p>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown('<h3 class="section-title">Step-by-Step Guide</h3>', unsafe_allow_html=True)
+        steps_html_parts = ['<div style="background:#F8F9FF; border-radius:20px; padding:1.5rem;">']
+        total_steps = len(guide["steps"])
+        for i, step in enumerate(guide["steps"]):
+            steps_html_parts.append(
+                '<div style="display:flex; align-items:flex-start; margin-bottom:0.9rem;">'
+                '<div style="min-width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,#667eea,#764ba2); '
+                'color:white; display:flex; align-items:center; justify-content:center; font-weight:700; margin-right:0.9rem;">'
+                + str(step['step_number']) + '</div>'
+                '<div><p style="margin:0; font-weight:700;">' + step['title'] + '</p>'
+                '<p style="margin:0.15rem 0 0 0; color:#444;">' + step['description'] + '</p></div></div>'
+            )
+            if i < total_steps - 1:
+                steps_html_parts.append(
+                    '<div style="margin:0 0 0.9rem 17px; border-left:2px dashed #a3a3d1; height:12px;"></div>'
+                )
+        steps_html_parts.append('</div>')
+        st.markdown("".join(steps_html_parts), unsafe_allow_html=True)
+
+        st.markdown('<h3 class="section-title">AI Tips for Best Results</h3>', unsafe_allow_html=True)
+        tips_html_parts = ['<div style="background:#F0FFF4; border-radius:20px; padding:1.5rem;"><ul style="margin:0; padding-left:1.2rem;">']
+        for tip in guide["tips"]:
+            tips_html_parts.append('<li style="margin-bottom:0.4rem;">' + tip + '</li>')
+        tips_html_parts.append('</ul></div>')
+        st.markdown("".join(tips_html_parts), unsafe_allow_html=True)
+
+        st.markdown('<h3 class="section-title">Frequently Asked Questions</h3>', unsafe_allow_html=True)
+        for faq in guide["faqs"]:
+            with st.expander(faq["question"]):
+                st.write(faq["answer"])
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("Back", key="help_back_btn", use_container_width=True):
+        st.session_state.page = st.session_state.help_return_page or "welcome"
+        st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
 
 def show_welcome():
     show_header()
@@ -2210,11 +3366,9 @@ def show_welcome():
         st.markdown('<h1 class="welcome-heading">📞 Contact Us</h1>', unsafe_allow_html=True)
         st.markdown("""
         <div style="background:#FFF8F0; border-radius:20px; padding:1.5rem;">
-            <p>📧 <strong>Email:</strong> elevatea0200@gmail.com</p>
-            <p>🌐 <strong>Website:</strong> www.coactions.com</p>
+            <p>📧 <strong>Email:</strong> <a href="mailto:elevateall2020@gmail.com">elevateall2020@gmail.com</a></p>
+            <p>🌐 <strong>Website:</strong> <a href="https://coactionsinfotech.org/" target="_blank">https://coactionsinfotech.org/</a></p>
             <p>💬 <strong>Support:</strong> Mon-Fri, 9AM-6PM</p>
-            <p>📱 <strong>Phone:</strong> +91 12345 67890</p>
-            <p>📍 <strong>Address:</strong> Career Guidance Center, Main Street, City</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("← Back to Home", key="back_to_home_contact"):
@@ -2230,32 +3384,6 @@ def show_welcome():
     st.markdown('<hr>', unsafe_allow_html=True)
     
     st.markdown('<h3 class="section-title">📝 Student Information</h3>', unsafe_allow_html=True)
-
-    st.markdown("""
-        <style>    
-          /* For all select/dropdown elements */
-          select, .stSelectbox select, [data-baseweb="select"] {
-             color: black !important;
-             background-color: white !important;
-            }
-
-          /* For all option items */
-          option, [role="option"] {
-             color: black !important;
-             background-color: white !important;
-            }
-
-          /* For Streamlit selectbox specifically */
-          .stSelectbox > div > div {
-              color: black !important;
-              background-color: white !important;
-            }
-
-          .stSelectbox [data-baseweb="select"] span {
-             color: black !important;
-            }
-        </style>
-        """, unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -2500,7 +3628,7 @@ def show_personality_choice():
     
     with col1:
         st.markdown('''
-        <div class="user-card" style="height: 100%; min-height: 350px; display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="user-card personality-choice-card">
             <div>
                 <div class="user-icon">📝</div>
                 <h3>Take Personality Assessment</h3>
@@ -2508,9 +3636,6 @@ def show_personality_choice():
                 <p style="margin-top:10px; font-size:0.8rem; color:#1E88E5;">⏱️ Takes about 10-15 minutes</p>
                 <p style="font-size:0.8rem; color:#1E88E5;">📊 25 questions</p>
                 <p style="margin-top:10px; font-size:0.8rem; color:#1565C0;">✨ Get personalized insights</p>
-            </div>
-            <div style="margin-top: 15px;">
-                <div class="stButton" style="width: 100%;"></div>
             </div>
         </div>
         ''', unsafe_allow_html=True)
@@ -2525,7 +3650,7 @@ def show_personality_choice():
     
     with col2:
         st.markdown('''
-        <div class="user-card" style="height: 100%; min-height: 350px; display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="user-card personality-choice-card">
             <div>
                 <div class="user-icon">⏭️</div>
                 <h3>Skip Personality Assessment</h3>
@@ -2533,9 +3658,6 @@ def show_personality_choice():
                 <p style="margin-top:10px; font-size:0.8rem; color:#1E88E5;">⚡ Continue directly</p>
                 <p style="font-size:0.8rem; color:#1E88E5;">📊 View your career recommendations</p>
                 <p style="margin-top:10px; font-size:0.8rem; color:#1565C0;">🎯 Your career assessment results are ready!</p>
-            </div>
-            <div style="margin-top: 15px;">
-                <div class="stButton" style="width: 100%;"></div>
             </div>
         </div>
         ''', unsafe_allow_html=True)
@@ -2760,7 +3882,7 @@ def show_recommendation():
             style = card_styles[idx % len(card_styles)]
             with cols[idx]:
                 st.markdown(f"""
-                <div class="{style}">
+                <div class="{style} rec-card">
                     <div style="font-size:0.85rem; opacity:0.85; font-weight:600;">#{idx + 1} RECOMMENDED</div>
                     <h3 style="margin:0.4rem 0;">{stream['stream_name']}</h3>
                     <div class="score-bar">
@@ -2774,6 +3896,7 @@ def show_recommendation():
                     st.session_state.selected_stream = stream['stream_name']
                     st.session_state.selected_stream_data = stream
                     st.session_state.ai_analysis = None
+                    st.session_state.career_overview = None
                     st.session_state.ai_deep_dive = None
                     st.session_state.page = 'ai_analysis'
                     st.rerun()
@@ -2791,6 +3914,7 @@ def show_recommendation():
                 st.session_state.selected_stream = streams[0]['stream_name']
                 st.session_state.selected_stream_data = streams[0]
             st.session_state.ai_analysis = None
+            st.session_state.career_overview = None
             st.session_state.ai_deep_dive = None
             st.session_state.page = 'ai_analysis'
             st.rerun()
@@ -2823,8 +3947,16 @@ def show_ai_analysis():
         'grade': st.session_state.student_grade,
     }
 
+    # CACHING POLICY: AI Analysis and Career Overview (below) share this same
+    # fingerprint and are both stored in st.session_state (ai_analysis,
+    # career_overview). Gemini is called again ONLY when the questionnaire
+    # (+ personality) responses change or a different career/stream is
+    # selected - `personality_responses` is included because it's part of
+    # the same pre-recommendation questionnaire/assessment step, not a
+    # separate trigger. Simply re-rendering this page never re-calls Gemini.
     current_fp = make_response_fingerprint(
         st.session_state.responses,
+        st.session_state.personality_responses,
         st.session_state.user_type,
         stream['stream_name'],
     )
@@ -2833,6 +3965,7 @@ def show_ai_analysis():
             result = generate_ai_analysis(
                 student_details,
                 st.session_state.responses,
+                st.session_state.personality_responses,
                 stream['stream_name'],
                 st.session_state.user_type,
             )
@@ -2859,17 +3992,109 @@ def show_ai_analysis():
     else:
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown('<div class="stream-card-high" style="text-align:left;">', unsafe_allow_html=True)
+            st.markdown('<div class="stream-card-high compare-card" style="text-align:left;">', unsafe_allow_html=True)
             st.markdown('<h3>💪 Strengths</h3>', unsafe_allow_html=True)
             for s in analysis['strengths']:
                 st.markdown(f"- {s}")
             st.markdown('</div>', unsafe_allow_html=True)
         with col2:
-            st.markdown('<div class="stream-card-potential" style="text-align:left;">', unsafe_allow_html=True)
+            st.markdown('<div class="stream-card-potential compare-card" style="text-align:left;">', unsafe_allow_html=True)
             st.markdown('<h3>🚀 Opportunities</h3>', unsafe_allow_html=True)
             for o in analysis['opportunities']:
                 st.markdown(f"- {o}")
             st.markdown('</div>', unsafe_allow_html=True)
+
+        # ---- Career Overview: generated automatically once the AI Analysis
+        # above has completed successfully, cached by the same fingerprint
+        # approach, shown in a modern expandable card. ----
+        if st.session_state.career_overview is None or st.session_state.career_overview_fingerprint != current_fp:
+            with st.spinner("Generating your Career Overview..."):
+                overview_result = generate_career_overview(
+                    student_details,
+                    st.session_state.responses,
+                    st.session_state.personality_responses,
+                    stream['stream_name'],
+                    st.session_state.user_type,
+                )
+            st.session_state.career_overview_status = overview_result
+            st.session_state.career_overview_fingerprint = current_fp
+
+        overview = st.session_state.career_overview
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        if not overview:
+            ov_msg = (st.session_state.career_overview_status or {}).get(
+                'message', 'Career Overview could not be generated right now.'
+            )
+            st.markdown(f"""
+            <div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">
+                <p>⚠️ {ov_msg}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.session_state.get('career_overview_error'):
+                with st.expander("Technical details (for debugging)"):
+                    st.code(st.session_state.career_overview_error)
+            if st.button("🔁 Retry Career Overview", use_container_width=True):
+                st.session_state.career_overview = None
+                st.rerun()
+        else:
+            with st.expander(f"📘 Career Overview — {stream['stream_name']}", expanded=True):
+                st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
+                st.markdown("**📖 Career Description**")
+                st.markdown(overview.get("career_description", ""))
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
+                st.markdown("**🎯 Why This Career Matches You**")
+                st.markdown(overview.get("why_matches", ""))
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
+                st.markdown("**🗓️ Daily Responsibilities**")
+                for item in overview.get("daily_responsibilities", []):
+                    st.markdown(f"- {item}")
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
+                st.markdown("**📈 Future Scope**")
+                st.markdown(overview.get("future_scope", ""))
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
+                st.markdown("**🌱 Career Growth**")
+                st.markdown(overview.get("career_growth", ""))
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # ---- Related Career Roles: grouped by AI-generated category,
+            # shown below the Career Overview. Clicking a role opens the
+            # full AI Career Detail page for that role. ----
+            role_groups = overview.get("related_career_roles", [])
+            if role_groups:
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
+                st.markdown("**🧭 Related Career Roles**")
+                st.markdown("Click a role to see its full AI-generated Career Detail page.")
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                for g_idx, group in enumerate(role_groups):
+                    category = group.get("category", "")
+                    roles = group.get("roles", [])
+                    if not roles:
+                        continue
+                    st.markdown(f"##### {category}")
+                    for row_start in range(0, len(roles), 3):
+                        row_roles = roles[row_start:row_start + 3]
+                        row_cols = st.columns(3)
+                        for j, role in enumerate(row_roles):
+                            r_idx = row_start + j
+                            with row_cols[j]:
+                                if st.button(role, key=f"ov_role_{g_idx}_{r_idx}", use_container_width=True):
+                                    st.session_state.selected_career_role = role
+                                    st.session_state.ai_role_detail = None
+                                    st.session_state.role_detail_return_page = 'ai_analysis'
+                                    st.session_state.page = 'role_detail'
+                                    st.rerun()
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
@@ -2914,7 +4139,14 @@ def show_role_detail():
         'grade': st.session_state.student_grade,
     }
 
+    # CACHING POLICY: this cached Career Detail is regenerated ONLY if the
+    # questionnaire responses change or a different career role/stream is
+    # selected - never on every rerun/navigation. `responses` was
+    # previously missing here, so a questionnaire retake did NOT invalidate
+    # an already-cached role detail; now it does, matching the same policy
+    # used for AI Analysis / Career Overview / the deep-dive report below.
     current_fp = make_response_fingerprint(
+        st.session_state.responses,
         st.session_state.user_type,
         stream['stream_name'],
         role_name,
@@ -2963,16 +4195,17 @@ def show_role_detail():
         section("Career Description", "📘", detail.get("career_description", ""))
         section("Salary Range (India)", "💰", detail.get("salary_range_india", ""))
         section("Educational Requirements", "🎓", detail.get("educational_requirements", []))
-        section("Job Responsibilities", "🧩", detail.get("job_responsibilities", []))
         section("Required Skills", "🛠️", detail.get("required_skills", []))
-        section("Future Job Growth", "📈", detail.get("future_job_growth", ""))
+        section("Job Responsibilities", "🧩", detail.get("job_responsibilities", []))
+        section("Job Growth", "📈", detail.get("future_job_growth", ""))
         section("Industry Outlook", "🏭", detail.get("industry_outlook", ""))
         section("Top Hiring Companies", "🏢", detail.get("top_hiring_companies", []))
+        section("Future Demand", "🔮", detail.get("future_demand", ""))
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
-    if st.button("← Back to Report", use_container_width=True):
-        st.session_state.page = 'report'
+    if st.button("← Back", use_container_width=True):
+        st.session_state.page = st.session_state.get('role_detail_return_page') or 'report'
         st.rerun()
 
     st.markdown('</div>', unsafe_allow_html=True)
@@ -3012,6 +4245,14 @@ def show_report():
         'grade': st.session_state.student_grade,
     }
 
+    # CACHING POLICY: this single Gemini call produces Skills (Technical +
+    # Soft), Career Opportunities, Education Path, and Learning Resources
+    # (recommended certifications, free resources, platforms, books,
+    # communities) together, all stored in st.session_state.ai_deep_dive -
+    # one cached object instead of separate calls per section. Regenerated
+    # ONLY when the questionnaire responses change or a different career/
+    # stream is selected; otherwise the cached report is reused on every
+    # rerun/navigation, avoiding a repeated Gemini call.
     current_fp = make_response_fingerprint(
         st.session_state.responses,
         st.session_state.user_type,
@@ -3060,12 +4301,109 @@ def show_report():
 
         section("Career Overview", "📘", report.get("career_overview", ""))
         section("Future Scope", "📈", report.get("future_scope", ""))
-        section("Technical Skills", "🛠️", report.get("technical_skills", []))
-        section("Soft Skills", "🤝", report.get("soft_skills", []))
-        section("Major Hiring Cities in India", "🏙️", report.get("major_hiring_cities_india", []))
-        section("Education Path", "🎓", report.get("education_path", ""))
-        section("Certifications", "📜", report.get("certifications", []))
-        section("Learning Resources", "📚", report.get("learning_resources", []))
+
+        # ---- Required Skills: Technical Skills + Soft Skills only, shown as
+        # modern skill chips. "Software Skills" is never generated or
+        # displayed under any name (enforced in the prompt + validator). ----
+        st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
+        st.markdown("**🛠️ Required Skills**")
+        st.markdown("*Technical Skills*")
+        tech_chips = "".join(
+            f'<span class="skill-chip-tech">{skill}</span>' for skill in report.get("technical_skills", [])
+        )
+        st.markdown(f'<div>{tech_chips}</div>', unsafe_allow_html=True)
+        st.markdown("<br>*Soft Skills*", unsafe_allow_html=True)
+        soft_chips = "".join(
+            f'<span class="skill-chip-soft">{skill}</span>' for skill in report.get("soft_skills", [])
+        )
+        st.markdown(f'<div>{soft_chips}</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # ---- Career Opportunities: hiring cities, industry hubs, and hiring
+        # industries, entirely AI-generated, shown as modern cards. ----
+        st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
+        st.markdown("**🌍 Career Opportunities**")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        def opportunity_grid(subtitle, icon, items):
+            st.markdown(f"**{icon} {subtitle}**")
+            items = items or []
+            if not items:
+                return
+            cards_html = "".join(
+                f'<div class="opportunity-card"><div class="opp-icon">{icon}</div>'
+                f'<div class="opp-label">{item}</div></div>'
+                for item in items
+            )
+            st.markdown(f'<div class="card-grid card-grid-4">{cards_html}</div>', unsafe_allow_html=True)
+
+        opportunity_grid("Top Hiring Cities in India", "🏙️", report.get("major_hiring_cities_india", []))
+        st.markdown("<br>", unsafe_allow_html=True)
+        opportunity_grid("Major Industry Hubs", "🏭", report.get("major_industry_hubs", []))
+        st.markdown("<br>", unsafe_allow_html=True)
+        opportunity_grid("Top Hiring Industries", "💼", report.get("top_hiring_industries", []))
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ---- Education Path: structured, AI-generated, shaped differently
+        # for school vs college students. ----
+        st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
+        st.markdown("**🎓 Education Path**")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        education_path = report.get("education_path", {}) or {}
+
+        def edu_field(label, icon, value):
+            st.markdown(f'<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
+            st.markdown(f"**{icon} {label}**")
+            if isinstance(value, list):
+                for item in value:
+                    st.markdown(f"- {item}")
+            else:
+                st.markdown(value or "")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        if st.session_state.user_type == 'school':
+            edu_field("Recommended Stream", "🧭", education_path.get("recommended_stream", ""))
+            edu_field("Undergraduate Degree", "🎓", education_path.get("undergraduate_degree", ""))
+            edu_field("Higher Studies", "📘", education_path.get("higher_studies", ""))
+            edu_field("Certifications", "📜", education_path.get("certifications", []))
+        else:
+            edu_field("Higher Education Options", "🎓", education_path.get("higher_education_options", ""))
+            edu_field("Professional Certifications", "📜", education_path.get("professional_certifications", []))
+            edu_field("Specializations", "🧭", education_path.get("specializations", []))
+            edu_field("Career Advancement", "📈", education_path.get("career_advancement", ""))
+
+        # ---- Learning Resources: personalized, AI-generated for the
+        # selected career - no hardcoded certification/resource lists. ----
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
+        st.markdown("**📚 Learning Resources**")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        learning_resources = report.get("learning_resources", {}) or {}
+
+        def resource_grid(subtitle, icon, items):
+            st.markdown(f"**{icon} {subtitle}**")
+            items = items or []
+            if not items:
+                return
+            cards_html = "".join(
+                f'<div class="opportunity-card"><div class="opp-icon">{icon}</div>'
+                f'<div class="opp-label">{item}</div></div>'
+                for item in items
+            )
+            st.markdown(f'<div class="card-grid card-grid-3">{cards_html}</div>', unsafe_allow_html=True)
+
+        resource_grid("Recommended Certifications", "📜", learning_resources.get("recommended_certifications", []))
+        st.markdown("<br>", unsafe_allow_html=True)
+        resource_grid("Free Learning Resources", "🆓", learning_resources.get("free_learning_resources", []))
+        st.markdown("<br>", unsafe_allow_html=True)
+        resource_grid("Online Platforms", "💻", learning_resources.get("online_platforms", []))
+        st.markdown("<br>", unsafe_allow_html=True)
+        resource_grid("Books", "📖", learning_resources.get("books", []))
+        st.markdown("<br>", unsafe_allow_html=True)
+        resource_grid("Communities", "🤝", learning_resources.get("communities", []))
+        st.markdown("<br>", unsafe_allow_html=True)
 
         roles = report.get("related_career_roles", [])
         if roles:
@@ -3073,14 +4411,18 @@ def show_report():
             st.markdown(f"**🧭 Related Career Roles**")
             st.markdown("Click a role to see its full AI-generated breakdown.")
             st.markdown('</div>', unsafe_allow_html=True)
-            role_cols = st.columns(3)
-            for r_idx, role in enumerate(roles):
-                with role_cols[r_idx % 3]:
-                    if st.button(role, key=f"role_{r_idx}", use_container_width=True):
-                        st.session_state.selected_career_role = role
-                        st.session_state.ai_role_detail = None
-                        st.session_state.page = 'role_detail'
-                        st.rerun()
+            for row_start in range(0, len(roles), 3):
+                row_roles = roles[row_start:row_start + 3]
+                row_cols = st.columns(3)
+                for j, role in enumerate(row_roles):
+                    r_idx = row_start + j
+                    with row_cols[j]:
+                        if st.button(role, key=f"role_{r_idx}", use_container_width=True):
+                            st.session_state.selected_career_role = role
+                            st.session_state.ai_role_detail = None
+                            st.session_state.role_detail_return_page = 'report'
+                            st.session_state.page = 'role_detail'
+                            st.rerun()
 
     st.markdown("<hr>", unsafe_allow_html=True)
     
@@ -3146,6 +4488,8 @@ def main():
         show_report()
     elif st.session_state.page == 'role_detail':
         show_role_detail()
+    elif st.session_state.page == 'help':
+        show_help()
 
 if __name__ == "__main__":
     main()
