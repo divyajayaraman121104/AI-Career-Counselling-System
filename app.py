@@ -6,8 +6,27 @@ import base64
 from fpdf import FPDF
 import tempfile
 import os
+import time      # MODIFICATION (503 retry): used for exponential backoff sleeps
+import logging   # MODIFICATION (503 retry): used to log each retry attempt
 from google import genai
 from google.genai import types
+from google.genai import errors as genai_errors  # MODIFICATION (503 retry): needed to detect ServerError/503 specifically
+
+
+# MODIFICATION (503 retry): dedicated logger for Gemini reliability events
+# (retries, backoff waits, model fallback). Uses the standard `logging`
+# module rather than `print()` so retry/backoff behaviour shows up in
+# proper log output (with levels + timestamps) alongside the rest of the
+# app's [Gemini DEBUG] print-based tracing already in this file.
+logging.basicConfig(level=logging.INFO)
+gemini_logger = logging.getLogger("coactions.gemini")
+
+# MODIFICATION (503 retry): tunable retry/backoff/fallback constants.
+# Kept at module level (not hardcoded inline) so they're easy to find and
+# adjust without hunting through _GeminiModel.
+GEMINI_MAX_RETRIES = 5                       # retry up to 5 times (6 attempts total) per model
+GEMINI_BACKOFF_SECONDS = [1, 2, 4, 8, 16]    # exponential backoff schedule, one entry per retry
+GEMINI_FALLBACK_MODEL_NAME = "gemini-2.5-flash"  # faster model to fall back to on persistent 503s
 
 
 # Page configuration
@@ -1428,6 +1447,21 @@ class GeminiConnectionError(Exception):
     pass
 
 
+class GeminiOverloadedError(GeminiConnectionError):
+    """
+    MODIFICATION (503 retry): raised only when the Gemini API kept
+    returning HTTP 503 (UNAVAILABLE / "high demand") even after every
+    retry attempt (and, if applicable, after trying the fallback model
+    too). Deliberately a SEPARATE exception type from generic
+    GeminiConnectionError / other errors so callers could special-case
+    "the service is overloaded, try later" messaging if they ever want
+    to - today it's still caught by the existing `except Exception`
+    blocks throughout this file and turned into a friendly message,
+    exactly like any other failure.
+    """
+    pass
+
+
 def _get_gemini_api_key():
     """
     Safely fetch the Gemini API key.
@@ -1457,11 +1491,22 @@ class _GeminiModel:
     config=types.GenerateContentConfig(...))` under the hood.
     """
 
-    def __init__(self, client: "genai.Client", model_name: str):
+    def __init__(self, client: "genai.Client", model_name: str, fallback_model_name: str = GEMINI_FALLBACK_MODEL_NAME):
         self._client = client
         self._model_name = model_name
+        # MODIFICATION (503 retry): remember the fallback model name so
+        # generate_content() can automatically switch to it if the primary
+        # model keeps returning 503s. If the primary model IS already the
+        # fallback model, there's nothing to fall back to (handled below).
+        self._fallback_model_name = fallback_model_name
 
-    def generate_content(self, prompt, generation_config=None):
+    def _build_config(self, generation_config):
+        """
+        MODIFICATION (503 retry): pulled the config-building logic out of
+        generate_content() into its own helper, unchanged in behaviour,
+        so generate_content() can call it once per retry/model-switch
+        without duplicating this block. No functional change here.
+        """
         config = None
         if generation_config:
             cfg_kwargs = {}
@@ -1475,12 +1520,104 @@ class _GeminiModel:
                     thinking_budget=tc.get("thinking_budget", 0)
                 )
             config = types.GenerateContentConfig(**cfg_kwargs)
+        return config
 
-        return self._client.models.generate_content(
-            model=self._model_name,
-            contents=prompt,
-            config=config,
-        )
+    def _call_with_retry(self, model_name, prompt, config):
+        """
+        MODIFICATION (503 retry): calls client.models.generate_content()
+        for a SINGLE model_name, retrying only on HTTP 503
+        (google.genai.errors.ServerError with .code == 503) with
+        exponential backoff (1, 2, 4, 8, 16 seconds), up to
+        GEMINI_MAX_RETRIES retries (6 attempts total).
+
+        Any other exception (ClientError such as auth failure, invalid
+        request, quota exceeded; or a ServerError that is NOT 503) is
+        re-raised immediately on the first occurrence - it is never
+        retried or suppressed, per requirement to only handle 503s.
+
+        Returns the raw SDK response on success. Raises the last 503
+        ServerError if every attempt for this model_name was exhausted.
+        """
+        last_error = None
+        for attempt in range(1, GEMINI_MAX_RETRIES + 2):  # attempt 1 = first try, then up to 5 retries
+            try:
+                return self._client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=config,
+                )
+            except genai_errors.ServerError as e:
+                # Only handle HTTP 503 (UNAVAILABLE / high demand). Any
+                # other server error code (500, 502, etc.) is NOT what
+                # this retry logic is for - raise it immediately.
+                if getattr(e, "code", None) != 503:
+                    raise
+
+                last_error = e
+                if attempt > GEMINI_MAX_RETRIES:
+                    # All retries for this model exhausted.
+                    gemini_logger.warning(
+                        "[Gemini] Model '%s' still returning 503 after %d retries. Giving up on this model.",
+                        model_name, GEMINI_MAX_RETRIES,
+                    )
+                    break
+
+                wait_seconds = GEMINI_BACKOFF_SECONDS[attempt - 1]
+                gemini_logger.warning(
+                    "[Gemini] 503 UNAVAILABLE from model '%s' (attempt %d/%d). "
+                    "Retrying in %d second(s)...",
+                    model_name, attempt, GEMINI_MAX_RETRIES + 1, wait_seconds,
+                )
+                time.sleep(wait_seconds)
+            # NOTE: every other exception type (ClientError - 401/403/429/400,
+            # or any non-genai exception) is intentionally NOT caught here,
+            # so it propagates straight up to the caller unmodified, exactly
+            # as before this change.
+
+        # Exhausted all retries for model_name with repeated 503s.
+        raise last_error
+
+    def generate_content(self, prompt, generation_config=None):
+        config = self._build_config(generation_config)
+
+        # MODIFICATION (503 retry): first try the primary model with
+        # retry + exponential backoff on 503s.
+        try:
+            return self._call_with_retry(self._model_name, prompt, config)
+        except genai_errors.ServerError as primary_error:
+            if getattr(primary_error, "code", None) != 503:
+                raise  # not a 503 - never retried in the first place, just re-raise
+
+            # MODIFICATION (503 retry): primary model kept returning 503
+            # after every retry - automatically fall back to a faster
+            # model (e.g. gemini-2.5-flash) and try again, if the primary
+            # model isn't already the fallback model.
+            if self._fallback_model_name and self._fallback_model_name != self._model_name:
+                gemini_logger.warning(
+                    "[Gemini] Falling back from model '%s' to '%s' after repeated 503 errors.",
+                    self._model_name, self._fallback_model_name,
+                )
+                try:
+                    return self._call_with_retry(self._fallback_model_name, prompt, config)
+                except genai_errors.ServerError as fallback_error:
+                    if getattr(fallback_error, "code", None) != 503:
+                        raise
+                    gemini_logger.error(
+                        "[Gemini] Fallback model '%s' also returned 503 after retries. Giving up.",
+                        self._fallback_model_name,
+                    )
+                    raise GeminiOverloadedError(
+                        "The Gemini API is currently experiencing high demand and did not "
+                        "recover after several automatic retries (including a fallback "
+                        "model). Please try again in a few minutes."
+                    ) from fallback_error
+
+            # No distinct fallback model available - surface a friendly error.
+            raise GeminiOverloadedError(
+                "The Gemini API is currently experiencing high demand and did not "
+                "recover after several automatic retries. Please try again in a "
+                "few minutes."
+            ) from primary_error
 
 
 @st.cache_resource(show_spinner=False)
@@ -3345,17 +3482,179 @@ def show_welcome():
     
     if st.session_state.show_about:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown('<h1 class="welcome-heading">📖 About CoActions</h1>', unsafe_allow_html=True)
+
         st.markdown("""
-        <div style="background:#FFF8F0; border-radius:20px; padding:1.5rem;">
-            <p>🌟 <strong>CoActions</strong> is a professional career guidance platform.</p>
-            <p>🎯 We help students discover their ideal career path through personalized assessments.</p>
-            <p>📊 Analyzing responses across 18+ career categories to provide accurate recommendations.</p>
-            <p>💡 Our AI-powered tool helps identify your strengths, interests, and potential career paths.</p>
-            <p>🏆 Trusted by thousands of students to make informed career decisions.</p>
+        <style>
+            .about-hero {
+                text-align: center;
+                padding: 0.5rem 0 1.5rem 0;
+            }
+            .about-hero h1 {
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
+                font-size: 2.1rem;
+                font-weight: 800;
+                margin-bottom: 0.4rem;
+            }
+            .about-hero p {
+                color: #4a5568;
+                font-size: 1.05rem;
+                font-weight: 500;
+                max-width: 640px;
+                margin: 0 auto;
+            }
+            .about-section {
+                background: rgba(255,255,255,0.9);
+                border-radius: 22px;
+                padding: 1.6rem 1.8rem;
+                margin-bottom: 1.2rem;
+                box-shadow: 0 10px 25px -12px rgba(0,0,0,0.15);
+                border: 1px solid rgba(102,126,234,0.15);
+            }
+            .about-section h2 {
+                font-size: 1.35rem;
+                font-weight: 800;
+                color: #2d2d44;
+                margin: 0 0 0.7rem 0;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            .about-section p {
+                color: #333;
+                font-size: 1rem;
+                line-height: 1.65;
+                margin: 0 0 0.7rem 0;
+            }
+            .about-section p:last-child { margin-bottom: 0; }
+            .about-badge {
+                display: inline-block;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: #fff;
+                font-weight: 700;
+                font-size: 0.78rem;
+                letter-spacing: 0.02em;
+                padding: 0.25rem 0.9rem;
+                border-radius: 20px;
+                margin-bottom: 0.9rem;
+            }
+            .about-list {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.6rem;
+            }
+            .about-list li {
+                background: #F8F9FF;
+                border-left: 4px solid #667eea;
+                border-radius: 12px;
+                padding: 0.65rem 0.9rem;
+                font-size: 0.95rem;
+                font-weight: 600;
+                color: #2d2d44;
+                line-height: 1.4;
+            }
+            .about-list.why li {
+                border-left-color: #11998e;
+                background: #F0FBF9;
+            }
+            @media (max-width: 700px) {
+                .about-list { grid-template-columns: 1fr; }
+            }
+            .about-mission {
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                border-radius: 22px;
+                padding: 1.8rem;
+                margin-bottom: 1.2rem;
+                text-align: center;
+                color: #fff;
+                box-shadow: 0 15px 30px -12px rgba(102,126,234,0.5);
+            }
+            .about-mission h2 {
+                font-size: 1.3rem;
+                font-weight: 800;
+                margin: 0 0 0.6rem 0;
+            }
+            .about-mission p {
+                font-size: 1.02rem;
+                line-height: 1.6;
+                margin: 0;
+                opacity: 0.97;
+            }
+            .about-commit {
+                background: #FFF8F0;
+                border-radius: 22px;
+                padding: 1.6rem 1.8rem;
+                border-left: 5px solid #E67E22;
+            }
+        </style>
+
+        <div class="about-hero">
+            <h1>🌍 About CoActions</h1>
+            <p>Empowering young people, institutions, and communities through technology, innovation, and meaningful learning experiences.</p>
+        </div>
+
+        <div class="about-section">
+            <h2>🌍 About CoActions</h2>
+            <p><strong>CoActions</strong> is a social impact organization committed to empowering young people, educational institutions, NGOs, and communities through technology, innovation, and meaningful learning experiences. By combining digital solutions with real-world projects, CoActions helps individuals develop future-ready skills while supporting organizations in creating sustainable social impact.</p>
+            <p>With experience collaborating across education, community development, and international initiatives, CoActions focuses on building opportunities that encourage <strong>leadership, innovation, and inclusive growth</strong>. Every program is designed to bridge the gap between classroom learning and practical experience, preparing individuals to succeed in an evolving global landscape.</p>
+        </div>
+
+        <div class="about-section">
+            <span class="about-badge">FLAGSHIP PROGRAM</span>
+            <h2>🚀 About the Elevate Initiative</h2>
+            <p>The <strong>Elevate Initiative</strong> is CoActions' flagship youth engagement and skill development program designed for students aged <strong>10 to 20 years</strong>. The program connects students with real-world projects, internships, and guided learning experiences that help them build practical knowledge beyond traditional academics.</p>
+            <p>Through hands-on participation in social, environmental, technology, education, and innovation-focused projects, students gain valuable experience while developing essential professional and life skills. Elevate encourages participants to become <strong>confident leaders, responsible citizens, and creative problem-solvers</strong> capable of making a positive impact in their communities.</p>
+        </div>
+
+        <div class="about-mission">
+            <h2>🎯 Our Mission</h2>
+            <p>Our mission is to empower students with practical learning opportunities that combine technology, innovation, and social responsibility. We aim to help every learner discover their strengths, build future-ready skills, and prepare confidently for higher education and successful careers.</p>
+        </div>
+
+        <div class="about-section">
+            <h2>💡 What We Do</h2>
+            <ul class="about-list">
+                <li>🎓 AI-powered Career Guidance and Skill Assessment</li>
+                <li>💻 Technology and Digital Transformation Solutions</li>
+                <li>🌱 Youth Leadership and Skill Development Programs</li>
+                <li>🤝 Internship and Real-World Project Opportunities</li>
+                <li>📊 Information Management and Data Solutions</li>
+                <li>🏫 Educational and Social Impact Initiatives</li>
+                <li>🌍 Community Development and NGO Support</li>
+            </ul>
+        </div>
+
+        <div class="about-section">
+            <h2>🌟 Why Choose CoActions?</h2>
+            <ul class="about-list why">
+                <li>Real-world project experience beyond classroom learning</li>
+                <li>AI-driven career guidance and personalized recommendations</li>
+                <li>Opportunities to work on meaningful social impact initiatives</li>
+                <li>Development of leadership, teamwork, and communication skills</li>
+                <li>Exposure to industry-relevant technologies and innovation</li>
+                <li>Supportive learning environment focused on continuous growth</li>
+                <li>Programs designed to strengthen academic, career, and university profiles</li>
+            </ul>
+        </div>
+
+        <div class="about-section">
+            <h2>📈 Our Impact</h2>
+            <p>Through the Elevate Initiative, students work on projects that address real societal challenges while strengthening their technical and professional skills. Participants have successfully secured <strong>internships, scholarships, leadership opportunities, and recognition</strong> through the practical experience gained during the program. Every project encourages creativity, collaboration, critical thinking, and a commitment to creating positive change.</p>
+        </div>
+
+        <div class="about-commit">
+            <h2 style="margin-top:0; color:#D35400; font-size:1.3rem; font-weight:800;">🤝 Our Commitment</h2>
+            <p style="margin:0; color:#333; line-height:1.65;">At CoActions, we believe education should extend beyond textbooks. We are committed to creating meaningful learning experiences that inspire students to innovate, collaborate, and lead with purpose. By combining technology, mentorship, and real-world engagement, we help young learners build confidence, develop future-ready skills, and contribute to a more inclusive and sustainable world.</p>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("← Back to Home", key="back_to_home_about"):
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("← Back to Home", key="back_to_home_about", use_container_width=True):
             st.session_state.show_about = False
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
