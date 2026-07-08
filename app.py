@@ -32,7 +32,7 @@ GEMINI_FALLBACK_MODEL_NAME = "gemini-2.5-flash"  # faster model to fall back to 
 # Page configuration
 st.set_page_config(
     page_title="CoActions - Career Guidance",
-    page_icon="🎯",
+    page_icon="logo123.png",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
