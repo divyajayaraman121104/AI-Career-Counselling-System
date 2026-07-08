@@ -132,9 +132,10 @@ st.markdown("""
         box-shadow: 0 10px 20px -5px rgba(102,126,234,0.4);
     }
 
-    /* Top-nav Home/About/Contact/Help buttons - scoped so this never
-       affects any other button in the app. Keeps labels on one line and
-       shrinks padding/font so 4 buttons fit comfortably side-by-side. */
+    /* Top-nav Home/About/Contact/Help/AI Chat buttons - scoped so this
+       never affects any other button in the app. Keeps labels on one
+       line and shrinks padding/font so 5 buttons fit comfortably
+       side-by-side. */
     .st-key-header_menu_row .stButton > button {
         padding: 0.55rem 0.5rem;
         font-size: 0.82rem;
@@ -810,6 +811,368 @@ st.markdown("""
         padding-bottom: 2rem !important;
     }
 
+    /* ==================== 12-MONTH LEARNING ROADMAP TIMELINE ==================== */
+    .roadmap-overview-card {
+        box-sizing: border-box;
+        background: rgba(247, 250, 252, 0.9);
+        border-radius: 20px;
+        padding: 1.2rem;
+        margin: 0 0 var(--space-md) 0;
+        border-left: 5px solid #667eea;
+        backdrop-filter: blur(4px);
+    }
+    .roadmap-timeline {
+        position: relative;
+        margin: 1.5rem 0;
+        padding-left: 2.4rem;
+    }
+    .roadmap-timeline::before {
+        content: "";
+        position: absolute;
+        left: 0.85rem;
+        top: 0.4rem;
+        bottom: 0.4rem;
+        width: 3px;
+        background: var(--brand-gradient);
+        border-radius: 3px;
+    }
+    .roadmap-month {
+        position: relative;
+        margin-bottom: 1.4rem;
+    }
+    .roadmap-month-dot {
+        position: absolute;
+        left: -2.4rem;
+        top: 0.3rem;
+        width: 1.8rem;
+        height: 1.8rem;
+        border-radius: 50%;
+        background: var(--brand-gradient);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 700;
+        box-shadow: 0 4px 10px -3px rgba(102,126,234,0.6);
+    }
+    .roadmap-month-card {
+        box-sizing: border-box;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(6px);
+        border-radius: 18px;
+        padding: 1.1rem 1.3rem;
+        border: 1px solid rgba(102,126,234,0.2);
+        box-shadow: 0 10px 22px -12px rgba(0,0,0,0.18);
+    }
+    .roadmap-month-card h4 {
+        margin: 0 0 0.6rem 0;
+        color: #2d2d44;
+        font-size: 1.05rem;
+    }
+    .roadmap-section-label {
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: #667eea;
+        margin: 0.55rem 0 0.2rem 0;
+    }
+    .roadmap-month-card ul {
+        margin: 0 0 0.2rem 0;
+        padding-left: 1.2rem;
+    }
+    .roadmap-month-card li {
+        font-size: 0.88rem;
+        margin-bottom: 0.15rem;
+    }
+    .roadmap-cert-chip {
+        display: inline-block;
+        background: linear-gradient(135deg, #43e97b, #38f9d7);
+        color: #12332a;
+        border-radius: 30px;
+        padding: 0.35rem 0.8rem;
+        margin: 0.2rem 0.25rem 0.2rem 0;
+        font-size: 0.78rem;
+        font-weight: 700;
+    }
+
+    /* ==================== AI SKILL GAP ANALYSIS ==================== */
+    .skillgap-readiness-card {
+        box-sizing: border-box;
+        background: rgba(247, 250, 252, 0.9);
+        border-radius: 20px;
+        padding: 1.2rem;
+        margin: 0 0 var(--space-md) 0;
+        border-left: 5px solid #667eea;
+        backdrop-filter: blur(4px);
+    }
+    .skillgap-readiness-score {
+        font-size: 2.2rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+    .skillgap-section-title {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #2d2d44;
+        margin: 1.6rem 0 0.7rem 0;
+    }
+    .skillgap-card {
+        box-sizing: border-box;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(6px);
+        border-radius: 18px;
+        padding: 1rem 1.2rem;
+        margin-bottom: 0.8rem;
+        border: 1px solid rgba(102,126,234,0.18);
+        box-shadow: 0 10px 22px -14px rgba(0,0,0,0.18);
+    }
+    .skillgap-card-title {
+        font-weight: 700;
+        font-size: 0.98rem;
+        color: #2d2d44;
+        margin-bottom: 0.3rem;
+    }
+    .skillgap-card-explanation {
+        font-size: 0.85rem;
+        color: #4a4a5e;
+        margin-top: 0.35rem;
+    }
+    .skillgap-bar-track {
+        background: rgba(0,0,0,0.08);
+        border-radius: 20px;
+        height: 10px;
+        margin: 0.4rem 0 0.2rem 0;
+        overflow: hidden;
+    }
+    .skillgap-bar-fill-strength {
+        background: linear-gradient(90deg, #11998e, #38ef7d);
+        border-radius: 20px;
+        height: 100%;
+    }
+    .skillgap-bar-fill-difficulty {
+        background: linear-gradient(90deg, #f2994a, #eb3349);
+        border-radius: 20px;
+        height: 100%;
+    }
+    .skillgap-badge {
+        display: inline-block;
+        border-radius: 30px;
+        padding: 0.3rem 0.75rem;
+        margin: 0 0 0.4rem 0;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: white;
+    }
+    .skillgap-badge-critical { background: linear-gradient(135deg, #eb3349, #f45c43); }
+    .skillgap-badge-high { background: linear-gradient(135deg, #f2994a, #f2c94c); }
+    .skillgap-badge-medium { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+    .skillgap-badge-easy { background: linear-gradient(135deg, #11998e, #38ef7d); }
+    .skillgap-badge-moderate { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+    .skillgap-badge-hard { background: linear-gradient(135deg, #f2994a, #f2c94c); }
+    .skillgap-badge-very-hard { background: linear-gradient(135deg, #eb3349, #f45c43); }
+    .skillgap-priority-rank {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.8rem;
+        height: 1.8rem;
+        border-radius: 50%;
+        background: var(--brand-gradient);
+        color: white;
+        font-weight: 800;
+        font-size: 0.85rem;
+        margin-right: 0.6rem;
+        flex-shrink: 0;
+    }
+    .skillgap-order-timeline {
+        position: relative;
+        margin: 0.5rem 0 1rem 0;
+        padding-left: 2.2rem;
+    }
+    .skillgap-order-timeline::before {
+        content: "";
+        position: absolute;
+        left: 0.75rem;
+        top: 0.3rem;
+        bottom: 0.3rem;
+        width: 3px;
+        background: var(--brand-gradient);
+        border-radius: 3px;
+    }
+    .skillgap-order-item {
+        position: relative;
+        margin-bottom: 0.9rem;
+    }
+    .skillgap-order-dot {
+        position: absolute;
+        left: -2.2rem;
+        top: 0.15rem;
+        width: 1.6rem;
+        height: 1.6rem;
+        border-radius: 50%;
+        background: var(--brand-gradient);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+    .skillgap-time-chip {
+        display: inline-block;
+        background: rgba(102,126,234,0.12);
+        color: #4a4a8a;
+        border-radius: 12px;
+        padding: 0.3rem 0.7rem;
+        margin: 0.15rem 0.3rem 0.15rem 0;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+
+    /* ==================== AI RESUME SUGGESTIONS ==================== */
+    .resume-note-card {
+        box-sizing: border-box;
+        background: rgba(247, 250, 252, 0.9);
+        border-radius: 20px;
+        padding: 1.1rem 1.2rem;
+        margin: 0 0 var(--space-md) 0;
+        border-left: 5px solid #764ba2;
+        backdrop-filter: blur(4px);
+        font-size: 0.88rem;
+    }
+    .resume-section-title {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #2d2d44;
+        margin: 1.6rem 0 0.7rem 0;
+    }
+    .resume-card {
+        box-sizing: border-box;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(6px);
+        border-radius: 18px;
+        padding: 1rem 1.2rem;
+        margin-bottom: 0.8rem;
+        border: 1px solid rgba(118,75,162,0.18);
+        box-shadow: 0 10px 22px -14px rgba(0,0,0,0.18);
+    }
+    .resume-card-title {
+        font-weight: 700;
+        font-size: 0.98rem;
+        color: #2d2d44;
+        margin-bottom: 0.3rem;
+    }
+    .resume-card-body {
+        font-size: 0.88rem;
+        color: #3a3a4e;
+        margin-top: 0.2rem;
+    }
+    .resume-card-reason {
+        font-size: 0.82rem;
+        color: #6a6a7e;
+        margin-top: 0.35rem;
+        font-style: italic;
+    }
+    .resume-option-badge {
+        display: inline-block;
+        background: linear-gradient(135deg, #764ba2, #667eea);
+        color: white;
+        border-radius: 30px;
+        padding: 0.25rem 0.7rem;
+        margin: 0 0 0.4rem 0;
+        font-size: 0.72rem;
+        font-weight: 700;
+    }
+    .resume-skill-chip {
+        display: inline-block;
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        color: white;
+        border-radius: 30px;
+        padding: 0.45rem 0.9rem;
+        margin: 0.25rem 0.3rem 0.25rem 0;
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+    .resume-cert-chip {
+        display: inline-block;
+        background: linear-gradient(135deg, #43e97b, #38f9d7);
+        color: #12332a;
+        border-radius: 30px;
+        padding: 0.4rem 0.85rem;
+        margin: 0.25rem 0.3rem 0.25rem 0;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+
+    /* ==================== AI CAREER CHATBOT ==================== */
+    .chatbot-intro-card {
+        box-sizing: border-box;
+        background: rgba(247, 250, 252, 0.9);
+        border-radius: 20px;
+        padding: 1rem 1.2rem;
+        margin: 0 0 var(--space-md) 0;
+        border-left: 5px solid #667eea;
+        backdrop-filter: blur(4px);
+        font-size: 0.88rem;
+    }
+    div[data-testid="stChatMessage"] {
+        background: rgba(255, 255, 255, 0.85);
+        border-radius: 18px;
+        backdrop-filter: blur(6px);
+        border: 1px solid rgba(102,126,234,0.15);
+        box-shadow: 0 8px 18px -12px rgba(0,0,0,0.18);
+    }
+    .stChatInput textarea, div[data-testid="stChatInput"] textarea {
+        border-radius: 20px !important;
+    }
+    .chatbot-suggested-label {
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: #667eea;
+        margin: 0.6rem 0 0.4rem 0;
+    }
+    .st-key-chatbot_suggested_row .stButton > button {
+        background: rgba(102,126,234,0.1);
+        color: #4a4a8a;
+        border: 1px solid rgba(102,126,234,0.3);
+        font-weight: 600;
+        font-size: 0.8rem;
+        padding: 0.5rem 0.9rem;
+        white-space: normal;
+        height: auto;
+    }
+    .st-key-chatbot_suggested_row .stButton > button:hover {
+        background: rgba(102,126,234,0.22);
+        color: #2d2d44;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px -8px rgba(102,126,234,0.4);
+    }
+    .st-key-chatbot_clear_row .stButton > button {
+        background: linear-gradient(135deg, #eb3349, #f45c43);
+    }
+    .typing-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0.3rem 0;
+    }
+    .typing-indicator span {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #764ba2;
+        animation: typing-bounce 1.2s infinite ease-in-out;
+    }
+    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing-bounce {
+        0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+        30% { transform: translateY(-6px); opacity: 1; }
+    }
+
     /* ==================== RESPONSIVE: TABLET / LAPTOP ==================== */
     @media (max-width: 1024px) {
         .app-title { font-size: 2.1rem; }
@@ -961,6 +1324,83 @@ if 'career_overview_fingerprint' not in st.session_state:
     st.session_state.career_overview_fingerprint = None
 if 'role_detail_return_page' not in st.session_state:
     st.session_state.role_detail_return_page = 'report'
+
+# ---- 12-Month AI Learning Roadmap state ----
+# roadmap_career_name holds whichever career the roadmap was requested for
+# (either the selected stream's name, or a specific role name drilled into
+# from the Career Detail page) - the roadmap is entirely AI-generated for
+# this career, never a hardcoded/static plan.
+if 'roadmap_career_name' not in st.session_state:
+    st.session_state.roadmap_career_name = None
+if 'roadmap_return_page' not in st.session_state:
+    st.session_state.roadmap_return_page = 'report'
+if 'learning_roadmap' not in st.session_state:
+    st.session_state.learning_roadmap = None
+if 'learning_roadmap_status' not in st.session_state:
+    st.session_state.learning_roadmap_status = None
+if 'learning_roadmap_error' not in st.session_state:
+    st.session_state.learning_roadmap_error = None
+if 'learning_roadmap_fingerprint' not in st.session_state:
+    st.session_state.learning_roadmap_fingerprint = None
+
+# ---- AI Skill Gap Analysis state ----
+# skillgap_career_name holds whichever career the analysis was requested
+# for (either the selected stream's name, or a specific role name drilled
+# into from the Career Detail page) - the analysis is entirely
+# AI-generated for this career (student's current abilities vs required
+# industry skills), never a hardcoded/predefined skill list.
+if 'skillgap_career_name' not in st.session_state:
+    st.session_state.skillgap_career_name = None
+if 'skillgap_return_page' not in st.session_state:
+    st.session_state.skillgap_return_page = 'report'
+if 'skill_gap_analysis' not in st.session_state:
+    st.session_state.skill_gap_analysis = None
+if 'skill_gap_analysis_status' not in st.session_state:
+    st.session_state.skill_gap_analysis_status = None
+if 'skill_gap_analysis_error' not in st.session_state:
+    st.session_state.skill_gap_analysis_error = None
+if 'skill_gap_analysis_fingerprint' not in st.session_state:
+    st.session_state.skill_gap_analysis_fingerprint = None
+
+# ---- AI Resume Suggestion state ----
+# resume_career_name holds whichever career the suggestions were requested
+# for. The suggestions are entirely AI-generated from the student's
+# details, the selected career, whatever skills context is available
+# (Career Detail's required_skills and/or the Skill Gap Analysis), and
+# whatever roadmap context is available (the 12-Month Learning Roadmap) -
+# never a static/templated resume or fixed suggestion list. This module
+# only ever produces suggestions, never a complete resume.
+if 'resume_career_name' not in st.session_state:
+    st.session_state.resume_career_name = None
+if 'resume_suggestions_return_page' not in st.session_state:
+    st.session_state.resume_suggestions_return_page = 'report'
+if 'resume_suggestions' not in st.session_state:
+    st.session_state.resume_suggestions = None
+if 'resume_suggestions_status' not in st.session_state:
+    st.session_state.resume_suggestions_status = None
+if 'resume_suggestions_error' not in st.session_state:
+    st.session_state.resume_suggestions_error = None
+if 'resume_suggestions_fingerprint' not in st.session_state:
+    st.session_state.resume_suggestions_fingerprint = None
+
+# ---- AI Career Chatbot state ----
+# chatbot_messages holds the full conversation as a list of
+# {"role": "user"/"assistant", "content": str} dicts, maintained purely in
+# Streamlit session state (no external chat DB). Every assistant reply is
+# generated live by Gemini for the specific conversation + student
+# context - there is no predefined/scripted chatbot response anywhere.
+if 'chatbot_messages' not in st.session_state:
+    st.session_state.chatbot_messages = []
+if 'chatbot_error' not in st.session_state:
+    st.session_state.chatbot_error = None
+if 'chatbot_suggested_questions' not in st.session_state:
+    st.session_state.chatbot_suggested_questions = None
+if 'chatbot_suggested_questions_fingerprint' not in st.session_state:
+    st.session_state.chatbot_suggested_questions_fingerprint = None
+if 'chatbot_return_page' not in st.session_state:
+    st.session_state.chatbot_return_page = 'report'
+if 'chatbot_pending_message' not in st.session_state:
+    st.session_state.chatbot_pending_message = None
 
 # Load JSON files
 @st.cache_data
@@ -3309,6 +3749,997 @@ def generate_ai_role_detail(student_details, role_name, stream, user_type):
         }
 
 
+def generate_learning_roadmap_prompt(student_details, questionnaire_responses, personality_pathway, career_name, user_type):
+    """
+    Build the prompt for a personalized 12-Month Learning Roadmap for the
+    student's selected career. Entirely AI-generated - no hardcoded/static
+    roadmap templates or JSON databases of any kind.
+
+    Inputs woven into the prompt (per the workflow: Student -> Select
+    Recommended Career -> 12-Month Roadmap):
+      - Student Details (name, education level, institution, location)
+      - Student Type (school -> beginner depth, college -> advanced depth)
+      - Selected Career (career_name)
+      - Questionnaire Responses (compact interest-score summary)
+      - Personality Assessment / learning-style pathway, if available
+    """
+    name = student_details.get('name', 'The student')
+    education_level = "School Student" if user_type == 'school' else "College Student"
+    grade = student_details.get('grade', '')
+
+    questionnaire_responses = questionnaire_responses or {}
+    categories_data = st.session_state.get('categories_data') or {}
+    scored_categories = sorted(
+        (
+            (cat.get('name') or cat.get('category_name') or cat_id, round(cat.get('score', 0)))
+            for cat_id, cat in categories_data.items()
+            if cat.get('question_count', 0) > 0
+        ),
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    if scored_categories:
+        questionnaire_lines = "\n".join(f"{cat_name}: {score}" for cat_name, score in scored_categories[:6])
+    elif questionnaire_responses:
+        questionnaire_lines = f"{len(questionnaire_responses)} questionnaire questions answered (scores unavailable)."
+    else:
+        questionnaire_lines = "No questionnaire responses provided."
+
+    if personality_pathway:
+        personality_lines = (
+            f"Learning Style: {personality_pathway.get('title', 'Unknown')} "
+            f"({personality_pathway.get('match_percentage', '')}% match) - "
+            f"{personality_pathway.get('description', '')}"
+        )
+    else:
+        personality_lines = "No personality/learning-style assessment available - do not assume a learning style."
+
+    if user_type == 'school':
+        depth_instruction = (
+            "This is a SCHOOL STUDENT (BEGINNER LEVEL ROADMAP): every month must "
+            "start from foundational, beginner-friendly ground - simple language, "
+            "no assumed prior expertise, light/introductory tools, and a gentle "
+            "month-over-month progression. Skills, topics, and projects should be "
+            "appropriate for someone with little to no prior exposure to this field."
+        )
+    else:
+        depth_instruction = (
+            "This is a COLLEGE STUDENT (ADVANCED / INDUSTRY-LEVEL ROADMAP): use "
+            "professional, industry-appropriate language throughout - assume the "
+            "student can grasp technical concepts quickly, reference real "
+            "industry tools/frameworks/practices, and progress toward "
+            "job-ready, portfolio-worthy competence by month 12."
+        )
+
+    prompt = f"""You are an expert career counsellor and curriculum-design AI. Build a
+personalized 12-MONTH LEARNING ROADMAP for the student below, who has
+selected the career "{career_name}".
+
+STUDENT DETAILS
+- Name: {name}
+- Education Level: {education_level}
+- Grade/Year: {grade}
+- Institution: {student_details.get('institution', '')}
+- Location: {student_details.get('city', '')}, {student_details.get('state', '')}
+
+STUDENT TYPE: {user_type.upper()}
+SELECTED CAREER: {career_name}
+
+CAREER QUESTIONNAIRE RESPONSES (INTEREST SCORES 0-100)
+{questionnaire_lines}
+
+PERSONALITY / LEARNING-STYLE ASSESSMENT
+{personality_lines}
+
+{depth_instruction}
+
+Do NOT use any pre-existing/manual roadmap template, JSON file, or
+predefined/static curriculum of any kind - generate every month's content
+freshly and specifically for "{career_name}", this student's type, their
+questionnaire signal, and their learning style (if given). The roadmap must
+show clear month-over-month PROGRESSION (each month should build on the
+previous one, moving from fundamentals toward proficiency).
+
+Generate EXACTLY 12 monthly entries (month_number 1 through 12). For EVERY
+single month, include ALL of these fields:
+- month_title: a short theme/title for that month (e.g. "Programming Foundations").
+- skills_to_learn: a list of 3 to 5 specific skills to learn that month.
+- topics: a list of 3 to 6 specific topics/concepts covered that month.
+- practice_activities: a list of 2 to 4 hands-on practice activities/exercises for that month.
+- mini_projects: a list of 1 to 3 small mini-projects to build that month, applying that month's skills.
+- free_resources: a list of 2 to 4 specific FREE learning resources (named courses, tutorials, YouTube channels, documentation, or open courseware) relevant to that month's content.
+- certifications: a list of 0 to 2 relevant certifications for that month IF applicable to that month's content; use an empty list if none apply that month - do not force a certification into every month.
+
+Also generate:
+- roadmap_overview: a short paragraph (2-4 sentences) summarizing the overall roadmap philosophy/progression for "{career_name}" and how it's tailored to this student.
+
+Keep every list item SHORT (a phrase, not a full sentence) so the roadmap
+stays scannable. Every string value must be a single line with no literal
+line breaks (use spaces instead).
+
+OUTPUT FORMAT - respond with ONLY valid JSON, no markdown fences, no preamble:
+
+{{
+  "career_name": "{career_name}",
+  "roadmap_overview": "string",
+  "months": [
+    {{
+      "month_number": 1,
+      "month_title": "string",
+      "skills_to_learn": ["string", "..."],
+      "topics": ["string", "..."],
+      "practice_activities": ["string", "..."],
+      "mini_projects": ["string", "..."],
+      "free_resources": ["string", "..."],
+      "certifications": ["string", "..."]
+    }}
+    ... (continue for all 12 months, month_number 1 through 12, in order)
+  ]
+}}
+
+Output JSON only."""
+
+    return prompt
+
+
+def _validate_learning_roadmap_schema(data):
+    """
+    Schema validator for the 12-Month Learning Roadmap response, passed
+    into generate_validated_json so a response missing required sections,
+    or missing any of the 12 months, triggers the same bounded single
+    automatic retry as a JSON parse failure.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("Learning roadmap response is not a JSON object.")
+
+    if "roadmap_overview" not in data:
+        raise ValueError("Learning roadmap response missing 'roadmap_overview'.")
+
+    months = data.get("months")
+    if not isinstance(months, list) or len(months) != 12:
+        raise ValueError("Learning roadmap response must contain exactly 12 months.")
+
+    required_month_keys = [
+        "month_number", "month_title", "skills_to_learn", "topics",
+        "practice_activities", "mini_projects", "free_resources", "certifications",
+    ]
+    for month in months:
+        if not isinstance(month, dict) or not all(k in month for k in required_month_keys):
+            raise ValueError("A month entry in the learning roadmap is missing one or more required fields.")
+
+    # Normalize month ordering by month_number so display always renders
+    # Month 1 -> Month 12 in order regardless of the order Gemini returned.
+    try:
+        data["months"] = sorted(months, key=lambda m: int(m.get("month_number", 0)))
+    except (TypeError, ValueError):
+        pass
+
+    return data
+
+
+def generate_ai_learning_roadmap(student_details, questionnaire_responses, personality_pathway, career_name, user_type):
+    """
+    Call Gemini to produce the dynamic 12-Month Learning Roadmap and store
+    the parsed result in st.session_state.learning_roadmap.
+
+    RELIABILITY: uses generate_validated_json, which retries the Gemini
+    call exactly ONCE if JSON parsing OR schema validation fails (capped -
+    no infinite retry loop) and never calls json.loads() on unchecked
+    text. The technical failure detail is stored separately in
+    st.session_state.learning_roadmap_error for an expandable debug
+    section; the message returned to the UI is always a short, friendly
+    sentence.
+    """
+    prompt = generate_learning_roadmap_prompt(
+        student_details, questionnaire_responses, personality_pathway, career_name, user_type,
+    )
+
+    try:
+        model = get_gemini_client()
+    except GeminiConfigError as e:
+        st.session_state.learning_roadmap = None
+        st.session_state.learning_roadmap_error = str(e)
+        return {"status": "error", "message": "The learning roadmap is temporarily unavailable. Please try again later."}
+
+    try:
+        data, response_text = generate_validated_json(
+            model, prompt, max_output_tokens=8192,
+            label="generate_ai_learning_roadmap",
+            validator=_validate_learning_roadmap_schema,
+        )
+
+        if data is None:
+            st.session_state.learning_roadmap = None
+            st.session_state.learning_roadmap_error = (
+                "Gemini's response was empty, invalid JSON, or missing "
+                "one or more required months/sections, even after one automatic retry."
+            )
+            return {
+                "status": "error",
+                "message": "This learning roadmap could not be generated right now. Please try again later.",
+            }
+
+        st.session_state.learning_roadmap = data
+        st.session_state.learning_roadmap_error = None
+        return {"status": "success", "message": "Learning roadmap generated."}
+    except Exception as e:
+        st.session_state.learning_roadmap = None
+        st.session_state.learning_roadmap_error = str(e)
+        return {
+            "status": "error",
+            "message": "Something went wrong while generating this learning roadmap. Please try again later.",
+        }
+
+
+def generate_skill_gap_prompt(student_details, questionnaire_responses, personality_pathway, ai_analysis, career_name, user_type):
+    """
+    Build the prompt for an AI SKILL GAP ANALYSIS for the student's
+    selected career. Entirely AI-generated - Gemini itself must decide
+    which current abilities the student likely has and which industry
+    skills the career requires; NO predefined/static skill list, database,
+    or taxonomy of any kind is used anywhere in this module.
+
+    Inputs woven into the prompt (Student -> Select Career -> Skill Gap
+    Analysis):
+      - Student Details (name, education level, institution, location)
+      - Student Type (school -> foundational framing, college -> industry framing)
+      - Selected Career (career_name)
+      - Questionnaire Responses (compact interest-score summary) as a proxy
+        signal for the student's current inclinations/abilities
+      - Personality Assessment / learning-style pathway, if available
+      - Previously AI-generated Strengths (from the AI Analysis step), if
+        available, as an additional signal of the student's current
+        abilities
+    """
+    name = student_details.get('name', 'The student')
+    education_level = "School Student" if user_type == 'school' else "College Student"
+    grade = student_details.get('grade', '')
+
+    questionnaire_responses = questionnaire_responses or {}
+    categories_data = st.session_state.get('categories_data') or {}
+    scored_categories = sorted(
+        (
+            (cat.get('name') or cat.get('category_name') or cat_id, round(cat.get('score', 0)))
+            for cat_id, cat in categories_data.items()
+            if cat.get('question_count', 0) > 0
+        ),
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    if scored_categories:
+        questionnaire_lines = "\n".join(f"{cat_name}: {score}" for cat_name, score in scored_categories[:6])
+    elif questionnaire_responses:
+        questionnaire_lines = f"{len(questionnaire_responses)} questionnaire questions answered (scores unavailable)."
+    else:
+        questionnaire_lines = "No questionnaire responses provided."
+
+    if personality_pathway:
+        personality_lines = (
+            f"Learning Style: {personality_pathway.get('title', 'Unknown')} "
+            f"({personality_pathway.get('match_percentage', '')}% match) - "
+            f"{personality_pathway.get('description', '')}"
+        )
+    else:
+        personality_lines = "No personality/learning-style assessment available - do not assume a learning style."
+
+    ai_analysis = ai_analysis or {}
+    prior_strengths = ai_analysis.get('strengths') or []
+    if prior_strengths:
+        prior_strengths_lines = "\n".join(f"- {s}" for s in prior_strengths[:6])
+    else:
+        prior_strengths_lines = "None available."
+
+    if user_type == 'school':
+        depth_instruction = (
+            "This is a SCHOOL STUDENT: frame current abilities in terms of "
+            "foundational aptitude, interests, and transferable habits (not "
+            "professional experience they don't have). Missing/required "
+            "skills should be described at a level a school student can "
+            "realistically start building now."
+        )
+    else:
+        depth_instruction = (
+            "This is a COLLEGE STUDENT: frame current abilities against "
+            "real, industry-standard skill expectations for this career, "
+            "using professional terminology and job-ready benchmarks."
+        )
+
+    prompt = f"""You are an expert industry skills-assessment AI. Perform an AI SKILL GAP
+ANALYSIS for the student below against the career "{career_name}", by
+comparing (a) the student's CURRENT ABILITIES, inferred from the signals
+given below, against (b) the REQUIRED INDUSTRY SKILLS for that career,
+which you must determine yourself from your own knowledge of the
+industry - do NOT use any predefined, static, or pre-existing skill list,
+JSON file, or database of any kind. Infer both sides freshly and
+specifically for this student and this exact career.
+
+STUDENT DETAILS
+- Name: {name}
+- Education Level: {education_level}
+- Grade/Year: {grade}
+- Institution: {student_details.get('institution', '')}
+- Location: {student_details.get('city', '')}, {student_details.get('state', '')}
+
+STUDENT TYPE: {user_type.upper()}
+SELECTED CAREER: {career_name}
+
+CAREER QUESTIONNAIRE RESPONSES (INTEREST SCORES 0-100, current-abilities signal)
+{questionnaire_lines}
+
+PERSONALITY / LEARNING-STYLE ASSESSMENT
+{personality_lines}
+
+PREVIOUSLY IDENTIFIED PERSONAL STRENGTHS (current-abilities signal)
+{prior_strengths_lines}
+
+{depth_instruction}
+
+Generate ALL of the following sections, entirely freshly for
+"{career_name}" and this student - every skill named, every score, and
+every explanation must be generated by you based on your own reasoning,
+never copied from a fixed list:
+
+1. overall_readiness_score: an integer 0-100 estimating how ready this
+   student currently is for "{career_name}" overall.
+2. readiness_summary: a short paragraph (2-4 sentences) summarizing the
+   student's overall skill-gap picture for this career.
+3. current_strengths: 3 to 6 skills/abilities the student ALREADY shows
+   signs of possessing that are relevant to "{career_name}". Each item needs:
+   - skill_name (short)
+   - proficiency_score: integer 0-100 estimating their current level in that skill
+   - explanation: 1 short sentence on why this is a strength for this student
+4. missing_skills: 4 to 8 industry-required skills for "{career_name}" that
+   the student does NOT yet show clear signs of having. Each item needs:
+   - skill_name (short)
+   - importance: one of "Critical", "High", "Medium" - how essential this skill is for the career
+   - explanation: 1 short sentence on why this skill matters for this career
+5. priority_skills: rank the 3 to 6 MOST urgent skills to develop first,
+   drawn from missing_skills. Each item needs:
+   - priority_rank: integer starting at 1 (1 = most urgent)
+   - skill_name (must match a skill_name from missing_skills)
+   - reason: 1 short sentence on why it's high priority
+6. learning_difficulty: for EVERY skill listed in missing_skills, estimate
+   how hard it will be for THIS student to learn. Each item needs:
+   - skill_name (must match a skill_name from missing_skills)
+   - difficulty_label: one of "Easy", "Moderate", "Hard", "Very Hard"
+   - difficulty_score: integer 0-100 (higher = harder)
+   - reason: 1 short sentence explaining the difficulty estimate
+7. recommended_learning_order: sequence ALL skills from missing_skills into
+   a logical learning order (which to learn first, second, etc). Each item needs:
+   - order: integer starting at 1
+   - skill_name (must match a skill_name from missing_skills)
+   - rationale: 1 short sentence on why it belongs at this point in the sequence
+8. estimated_learning_time: for EVERY skill in missing_skills, estimate how
+   long it will realistically take this student to learn it. Each item needs:
+   - skill_name (must match a skill_name from missing_skills)
+   - estimated_duration: short phrase, e.g. "3-4 weeks" or "2 months"
+   - weekly_commitment: short phrase, e.g. "4-5 hrs/week"
+
+Keep every explanation/reason/rationale to ONE short sentence so the
+results stay scannable. Every string value must be a single line with no
+literal line breaks (use spaces instead). Every skill_name referenced in
+priority_skills, learning_difficulty, recommended_learning_order, and
+estimated_learning_time MUST exactly match a skill_name that appears in
+missing_skills.
+
+OUTPUT FORMAT - respond with ONLY valid JSON, no markdown fences, no preamble:
+
+{{
+  "career_name": "{career_name}",
+  "overall_readiness_score": 0,
+  "readiness_summary": "string",
+  "current_strengths": [
+    {{"skill_name": "string", "proficiency_score": 0, "explanation": "string"}}
+    ... (3 to 6 items)
+  ],
+  "missing_skills": [
+    {{"skill_name": "string", "importance": "Critical", "explanation": "string"}}
+    ... (4 to 8 items)
+  ],
+  "priority_skills": [
+    {{"priority_rank": 1, "skill_name": "string", "reason": "string"}}
+    ... (3 to 6 items)
+  ],
+  "learning_difficulty": [
+    {{"skill_name": "string", "difficulty_label": "Moderate", "difficulty_score": 0, "reason": "string"}}
+    ... (one entry per missing_skills item)
+  ],
+  "recommended_learning_order": [
+    {{"order": 1, "skill_name": "string", "rationale": "string"}}
+    ... (one entry per missing_skills item)
+  ],
+  "estimated_learning_time": [
+    {{"skill_name": "string", "estimated_duration": "string", "weekly_commitment": "string"}}
+    ... (one entry per missing_skills item)
+  ]
+}}
+
+Output JSON only."""
+
+    return prompt
+
+
+def _validate_skill_gap_schema(data):
+    """
+    Schema validator for the AI Skill Gap Analysis response, passed into
+    generate_validated_json so a response missing required sections
+    triggers the same bounded single automatic retry as a JSON parse
+    failure.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("Skill gap analysis response is not a JSON object.")
+
+    required_top_keys = [
+        "overall_readiness_score", "readiness_summary", "current_strengths",
+        "missing_skills", "priority_skills", "learning_difficulty",
+        "recommended_learning_order", "estimated_learning_time",
+    ]
+    for key in required_top_keys:
+        if key not in data:
+            raise ValueError(f"Skill gap analysis response missing '{key}'.")
+
+    list_fields = [
+        "current_strengths", "missing_skills", "priority_skills",
+        "learning_difficulty", "recommended_learning_order", "estimated_learning_time",
+    ]
+    for field in list_fields:
+        if not isinstance(data.get(field), list) or len(data.get(field)) == 0:
+            raise ValueError(f"Skill gap analysis response has an empty/invalid '{field}' list.")
+
+    required_item_keys = {
+        "current_strengths": ["skill_name", "proficiency_score", "explanation"],
+        "missing_skills": ["skill_name", "importance", "explanation"],
+        "priority_skills": ["priority_rank", "skill_name", "reason"],
+        "learning_difficulty": ["skill_name", "difficulty_label", "difficulty_score", "reason"],
+        "recommended_learning_order": ["order", "skill_name", "rationale"],
+        "estimated_learning_time": ["skill_name", "estimated_duration", "weekly_commitment"],
+    }
+    for field, keys in required_item_keys.items():
+        for item in data.get(field, []):
+            if not isinstance(item, dict) or not all(k in item for k in keys):
+                raise ValueError(f"An item in '{field}' is missing one or more required fields.")
+
+    # Normalize ordering so display always renders in a sensible sequence
+    # regardless of the order Gemini returned them in.
+    try:
+        data["priority_skills"] = sorted(
+            data["priority_skills"], key=lambda x: int(x.get("priority_rank", 0))
+        )
+    except (TypeError, ValueError):
+        pass
+    try:
+        data["recommended_learning_order"] = sorted(
+            data["recommended_learning_order"], key=lambda x: int(x.get("order", 0))
+        )
+    except (TypeError, ValueError):
+        pass
+    try:
+        data["current_strengths"] = sorted(
+            data["current_strengths"], key=lambda x: int(x.get("proficiency_score", 0)), reverse=True
+        )
+    except (TypeError, ValueError):
+        pass
+
+    return data
+
+
+def generate_ai_skill_gap_analysis(student_details, questionnaire_responses, personality_pathway, ai_analysis, career_name, user_type):
+    """
+    Call Gemini to produce the dynamic AI Skill Gap Analysis (Current
+    Strengths, Missing Skills, Priority Skills, Learning Difficulty,
+    Recommended Learning Order, Estimated Learning Time) and store the
+    parsed result in st.session_state.skill_gap_analysis.
+
+    RELIABILITY: uses generate_validated_json, which retries the Gemini
+    call exactly ONCE if JSON parsing OR schema validation fails (capped -
+    no infinite retry loop) and never calls json.loads() on unchecked
+    text. The technical failure detail is stored separately in
+    st.session_state.skill_gap_analysis_error for an expandable debug
+    section; the message returned to the UI is always a short, friendly
+    sentence.
+    """
+    prompt = generate_skill_gap_prompt(
+        student_details, questionnaire_responses, personality_pathway, ai_analysis, career_name, user_type,
+    )
+
+    try:
+        model = get_gemini_client()
+    except GeminiConfigError as e:
+        st.session_state.skill_gap_analysis = None
+        st.session_state.skill_gap_analysis_error = str(e)
+        return {"status": "error", "message": "The skill gap analysis is temporarily unavailable. Please try again later."}
+
+    try:
+        data, response_text = generate_validated_json(
+            model, prompt, max_output_tokens=8192,
+            label="generate_ai_skill_gap_analysis",
+            validator=_validate_skill_gap_schema,
+        )
+
+        if data is None:
+            st.session_state.skill_gap_analysis = None
+            st.session_state.skill_gap_analysis_error = (
+                "Gemini's response was empty, invalid JSON, or missing "
+                "one or more required sections, even after one automatic retry."
+            )
+            return {
+                "status": "error",
+                "message": "This skill gap analysis could not be generated right now. Please try again later.",
+            }
+
+        st.session_state.skill_gap_analysis = data
+        st.session_state.skill_gap_analysis_error = None
+        return {"status": "success", "message": "Skill gap analysis generated."}
+    except Exception as e:
+        st.session_state.skill_gap_analysis = None
+        st.session_state.skill_gap_analysis_error = str(e)
+        return {
+            "status": "error",
+            "message": "Something went wrong while generating this skill gap analysis. Please try again later.",
+        }
+
+
+def generate_resume_suggestions_prompt(student_details, career_name, user_type, skills_context, roadmap_context):
+    """
+    Build the prompt for AI RESUME SUGGESTIONS for the student's selected
+    career. Entirely AI-generated - Gemini must produce personalized
+    SUGGESTIONS only (never a complete/fake resume, never fabricated
+    work history), grounded in the student's details, the selected
+    career, and whatever real skills/roadmap context is available from
+    earlier steps in the app.
+
+    Inputs woven into the prompt (Student -> Recommended Career -> Skills
+    -> Roadmap -> AI Resume Suggestions):
+      - Student Details (name, education level, institution, location)
+      - Recommended Career (career_name)
+      - Skills context (from Career Detail's required_skills and/or the
+        Skill Gap Analysis's current strengths / missing skills), if
+        available
+      - Roadmap context (skills-per-month summary from the 12-Month
+        Learning Roadmap), if available
+    """
+    name = student_details.get('name', 'The student')
+    education_level = "School Student" if user_type == 'school' else "College Student"
+    grade = student_details.get('grade', '')
+
+    skills_lines = skills_context if skills_context else "No prior skills data available - infer typical relevant skills yourself."
+    roadmap_lines = roadmap_context if roadmap_context else "No learning roadmap generated yet - do not assume specific completed roadmap milestones."
+
+    if user_type == 'school':
+        depth_instruction = (
+            "This is a SCHOOL STUDENT: suggestions should suit a beginner's "
+            "resume/portfolio profile - school-level projects, clubs, "
+            "competitions, and entry-level exposure. Do NOT suggest "
+            "professional work experience or paid internships that would "
+            "be unrealistic for a school student; favor school/community "
+            "projects, junior competitions, online micro-courses, and "
+            "beginner-friendly virtual internships or volunteering instead."
+        )
+    else:
+        depth_instruction = (
+            "This is a COLLEGE STUDENT: suggestions should suit a "
+            "job-ready, industry-facing resume/portfolio profile - "
+            "real-world project ideas, recognized certifications, "
+            "internship types, and achievement framing that a recruiter "
+            "in this field would find credible."
+        )
+
+    prompt = f"""You are an expert resume-strategy AI for students. Generate PERSONALIZED
+RESUME SUGGESTIONS ONLY for the student below, based on their profile and
+selected career "{career_name}". Do NOT write a complete resume, do NOT
+invent fake work history, fake companies, or fake accomplishments the
+student hasn't done - only generate forward-looking, realistic
+SUGGESTIONS the student can act on. Everything must be freshly generated
+by you for this exact student and career - do not use any fixed/static
+suggestion list or template of any kind.
+
+STUDENT DETAILS
+- Name: {name}
+- Education Level: {education_level}
+- Grade/Year: {grade}
+- Institution: {student_details.get('institution', '')}
+- Location: {student_details.get('city', '')}, {student_details.get('state', '')}
+
+RECOMMENDED CAREER: {career_name}
+STUDENT TYPE: {user_type.upper()}
+
+SKILLS CONTEXT (from this student's Career Detail / Skill Gap Analysis, if available)
+{skills_lines}
+
+ROADMAP CONTEXT (from this student's 12-Month Learning Roadmap, if available)
+{roadmap_lines}
+
+{depth_instruction}
+
+Generate ALL of the following sections as SUGGESTIONS ONLY (never a
+finished resume, never fabricated history):
+
+1. resume_headline: 2 to 3 alternative short resume headline/title lines
+   (each under 12 words) the student could use, tailored to "{career_name}".
+2. career_objective: 2 to 3 alternative short career objective/summary
+   statements (each 1-2 sentences) tailored to this student and career.
+3. key_skills: 5 to 8 skills the student should feature on their resume
+   for this career. Each item needs:
+   - skill_name (short)
+   - reason: 1 short sentence on why this skill should be featured
+4. projects_to_include: 3 to 5 project ideas the student could build and
+   list on their resume/portfolio for this career. Each item needs:
+   - project_title (short)
+   - description: 1-2 sentence description of what the project would involve
+   - relevance: 1 short sentence on why it strengthens their resume for this career
+5. certifications: 3 to 5 suggested certifications relevant to this career
+   (real, recognizable certification names/providers where possible).
+   Each item needs:
+   - certification_name
+   - reason: 1 short sentence on why it's valuable for this career
+6. achievements: 3 to 5 suggestions for achievements/recognitions the
+   student could pursue or highlight (e.g. competitions, hackathons,
+   olympiads, leadership roles) framed as forward-looking suggestions, not
+   fabricated claims. Each item needs:
+   - suggestion (short)
+   - reason: 1 short sentence on why it would strengthen their resume
+7. portfolio_suggestions: 3 to 5 suggestions for what to include in an
+   online portfolio (e.g. GitHub, personal website, Behance, LinkedIn
+   featured section) for this career. Each item needs:
+   - suggestion (short)
+   - platform_or_format: short phrase naming a suitable platform/format
+   - reason: 1 short sentence on why it helps
+8. internship_suggestions: 3 to 5 suggestions for the TYPE of internships
+   or entry-level/volunteer opportunities the student should look for
+   (roles/domains, not specific real companies). Each item needs:
+   - internship_type (short)
+   - reason: 1 short sentence on why this type of internship fits their profile and career
+
+Keep every reason/description to ONE short sentence so results stay
+scannable. Every string value must be a single line with no literal line
+breaks (use spaces instead).
+
+OUTPUT FORMAT - respond with ONLY valid JSON, no markdown fences, no preamble:
+
+{{
+  "career_name": "{career_name}",
+  "resume_headline": ["string", "string"],
+  "career_objective": ["string", "string"],
+  "key_skills": [
+    {{"skill_name": "string", "reason": "string"}}
+    ... (5 to 8 items)
+  ],
+  "projects_to_include": [
+    {{"project_title": "string", "description": "string", "relevance": "string"}}
+    ... (3 to 5 items)
+  ],
+  "certifications": [
+    {{"certification_name": "string", "reason": "string"}}
+    ... (3 to 5 items)
+  ],
+  "achievements": [
+    {{"suggestion": "string", "reason": "string"}}
+    ... (3 to 5 items)
+  ],
+  "portfolio_suggestions": [
+    {{"suggestion": "string", "platform_or_format": "string", "reason": "string"}}
+    ... (3 to 5 items)
+  ],
+  "internship_suggestions": [
+    {{"internship_type": "string", "reason": "string"}}
+    ... (3 to 5 items)
+  ]
+}}
+
+Output JSON only."""
+
+    return prompt
+
+
+def _validate_resume_suggestions_schema(data):
+    """
+    Schema validator for the AI Resume Suggestions response, passed into
+    generate_validated_json so a response missing required sections
+    triggers the same bounded single automatic retry as a JSON parse
+    failure.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("Resume suggestions response is not a JSON object.")
+
+    required_list_fields = {
+        "resume_headline": None,
+        "career_objective": None,
+        "key_skills": ["skill_name", "reason"],
+        "projects_to_include": ["project_title", "description", "relevance"],
+        "certifications": ["certification_name", "reason"],
+        "achievements": ["suggestion", "reason"],
+        "portfolio_suggestions": ["suggestion", "platform_or_format", "reason"],
+        "internship_suggestions": ["internship_type", "reason"],
+    }
+
+    for field in required_list_fields:
+        if field not in data:
+            raise ValueError(f"Resume suggestions response missing '{field}'.")
+        if not isinstance(data.get(field), list) or len(data.get(field)) == 0:
+            raise ValueError(f"Resume suggestions response has an empty/invalid '{field}' list.")
+
+    for field, keys in required_list_fields.items():
+        if keys is None:
+            for item in data.get(field, []):
+                if not isinstance(item, str) or not item.strip():
+                    raise ValueError(f"An item in '{field}' is not a valid non-empty string.")
+        else:
+            for item in data.get(field, []):
+                if not isinstance(item, dict) or not all(k in item for k in keys):
+                    raise ValueError(f"An item in '{field}' is missing one or more required fields.")
+
+    return data
+
+
+def generate_ai_resume_suggestions(student_details, career_name, user_type, skills_context, roadmap_context):
+    """
+    Call Gemini to produce the dynamic AI Resume Suggestions (Headline,
+    Career Objective, Key Skills, Projects to Include, Certifications,
+    Achievements, Portfolio Suggestions, Internship Suggestions) and store
+    the parsed result in st.session_state.resume_suggestions.
+
+    RELIABILITY: uses generate_validated_json, which retries the Gemini
+    call exactly ONCE if JSON parsing OR schema validation fails (capped -
+    no infinite retry loop) and never calls json.loads() on unchecked
+    text. The technical failure detail is stored separately in
+    st.session_state.resume_suggestions_error for an expandable debug
+    section; the message returned to the UI is always a short, friendly
+    sentence.
+    """
+    prompt = generate_resume_suggestions_prompt(
+        student_details, career_name, user_type, skills_context, roadmap_context,
+    )
+
+    try:
+        model = get_gemini_client()
+    except GeminiConfigError as e:
+        st.session_state.resume_suggestions = None
+        st.session_state.resume_suggestions_error = str(e)
+        return {"status": "error", "message": "Resume suggestions are temporarily unavailable. Please try again later."}
+
+    try:
+        data, response_text = generate_validated_json(
+            model, prompt, max_output_tokens=8192,
+            label="generate_ai_resume_suggestions",
+            validator=_validate_resume_suggestions_schema,
+        )
+
+        if data is None:
+            st.session_state.resume_suggestions = None
+            st.session_state.resume_suggestions_error = (
+                "Gemini's response was empty, invalid JSON, or missing "
+                "one or more required sections, even after one automatic retry."
+            )
+            return {
+                "status": "error",
+                "message": "These resume suggestions could not be generated right now. Please try again later.",
+            }
+
+        st.session_state.resume_suggestions = data
+        st.session_state.resume_suggestions_error = None
+        return {"status": "success", "message": "Resume suggestions generated."}
+    except Exception as e:
+        st.session_state.resume_suggestions = None
+        st.session_state.resume_suggestions_error = str(e)
+        return {
+            "status": "error",
+            "message": "Something went wrong while generating these resume suggestions. Please try again later.",
+        }
+
+
+CHATBOT_TOPIC_CATEGORIES = """
+- Career Recommendations
+- Career Analysis
+- Learning Roadmap
+- Skills
+- Education
+- Higher Studies
+- Job Roles
+- Certifications
+- Resume
+- Interview Preparation
+"""
+
+
+def _build_chatbot_context():
+    """
+    Gather whatever real, already-generated personalization context exists
+    in st.session_state (student details, selected career, AI Analysis,
+    Career Overview / Deep Dive skills & education path, Skill Gap
+    Analysis, 12-Month Learning Roadmap, Resume Suggestions) and format it
+    into a compact text block so the chatbot's answers are grounded in
+    THIS student's actual journey through the app rather than generic
+    advice. Any section not yet generated is simply omitted - the prompt
+    instructs Gemini to answer generally in that case.
+    """
+    parts = []
+
+    name = st.session_state.get('student_name')
+    if name:
+        user_type = st.session_state.get('user_type')
+        education_level = "School Student" if user_type == 'school' else "College Student"
+        parts.append(
+            f"Student: {name}, {education_level}, Grade/Year: {st.session_state.get('student_grade', '')}, "
+            f"Institution: {st.session_state.get('student_institution', '')}, "
+            f"Location: {st.session_state.get('student_city', '')}, {st.session_state.get('student_state', '')}"
+        )
+
+    stream = st.session_state.get('selected_stream_data')
+    if stream:
+        parts.append(
+            f"Selected/Recommended Career: {stream.get('stream_name', '')} "
+            f"(Match: {stream.get('match_percentage', '')}%)"
+        )
+
+    ai_analysis = st.session_state.get('ai_analysis')
+    if ai_analysis and ai_analysis.get('strengths'):
+        parts.append("Identified Personal Strengths: " + ", ".join(ai_analysis.get('strengths', [])[:6]))
+
+    deep_dive = st.session_state.get('ai_deep_dive')
+    if deep_dive:
+        if deep_dive.get('technical_skills'):
+            parts.append("Technical Skills for this career: " + ", ".join(deep_dive.get('technical_skills', [])[:10]))
+        if deep_dive.get('soft_skills'):
+            parts.append("Soft Skills for this career: " + ", ".join(deep_dive.get('soft_skills', [])[:10]))
+        education_path = deep_dive.get('education_path') or {}
+        if education_path:
+            edu_bits = [f"{k}: {v}" for k, v in education_path.items() if v and isinstance(v, str)]
+            if edu_bits:
+                parts.append("Education Path: " + "; ".join(edu_bits[:6]))
+        if deep_dive.get('related_career_roles'):
+            parts.append("Related Job Roles: " + ", ".join(deep_dive.get('related_career_roles', [])[:8]))
+
+    skill_gap = st.session_state.get('skill_gap_analysis')
+    if skill_gap:
+        if skill_gap.get('missing_skills'):
+            parts.append(
+                "Skills Currently Being Developed (Skill Gap Analysis): "
+                + ", ".join(s.get('skill_name', '') for s in skill_gap.get('missing_skills', [])[:8])
+            )
+        if skill_gap.get('overall_readiness_score') is not None:
+            parts.append(f"Overall Career Readiness Score: {skill_gap.get('overall_readiness_score')}%")
+
+    roadmap = st.session_state.get('learning_roadmap')
+    if roadmap and roadmap.get('months'):
+        month_titles = [f"M{m.get('month_number')}: {m.get('month_title', '')}" for m in roadmap.get('months', [])[:12]]
+        parts.append("12-Month Learning Roadmap outline: " + "; ".join(month_titles))
+
+    resume = st.session_state.get('resume_suggestions')
+    if resume:
+        if resume.get('resume_headline'):
+            parts.append("Suggested Resume Headline(s): " + " | ".join(resume.get('resume_headline', [])[:2]))
+        if resume.get('key_skills'):
+            parts.append(
+                "Resume Key Skills to Feature: "
+                + ", ".join(s.get('skill_name', '') for s in resume.get('key_skills', [])[:6])
+            )
+
+    return "\n".join(parts)
+
+
+def generate_chatbot_suggested_questions(context_text):
+    """
+    Ask Gemini for a short set of suggested starter questions the student
+    can tap, spanning the chatbot's supported topic categories and
+    personalized to this student's context when available. Plain-text
+    call (one question per line) - not JSON - since the output is a
+    simple list of short strings.
+    """
+    try:
+        model = get_gemini_client()
+    except GeminiConfigError:
+        return []
+
+    context_block = context_text if context_text else "No personalized context available yet - suggest general-purpose starter questions."
+
+    prompt = f"""You are generating SUGGESTED STARTER QUESTIONS for an AI career chatbot
+inside the CoActions platform. The chatbot answers questions about:
+{CHATBOT_TOPIC_CATEGORIES}
+STUDENT CONTEXT:
+{context_block}
+
+Generate exactly 6 short, natural starter questions a student like this
+would want to tap on to ask the chatbot. Cover a VARIETY of the topic
+categories above (not all the same category), and personalize them to
+the student context where possible (e.g. mention their selected career
+by name if given). Each question must be under 12 words.
+
+Respond with ONLY the 6 questions, one per line, no numbering, no
+markdown, no preamble."""
+
+    try:
+        response = model.generate_content(
+            prompt,
+            generation_config={
+                "max_output_tokens": 512,
+                "thinking_config": {"thinking_budget": 0},
+            },
+        )
+        text = (getattr(response, "text", "") or "").strip()
+    except Exception:
+        return []
+
+    if not text:
+        return []
+
+    questions = []
+    for line in text.splitlines():
+        cleaned = line.strip().lstrip("-•*0123456789.) ").strip()
+        if cleaned:
+            questions.append(cleaned)
+
+    return questions[:6]
+
+
+def generate_chatbot_reply(user_message, context_text, conversation_history):
+    """
+    Generate the AI Career Chatbot's reply to `user_message` using Gemini,
+    grounded in the student's app-usage context and the ongoing
+    conversation history maintained in st.session_state. Plain-text call
+    (conversational answer, not JSON). Every reply is generated fresh by
+    Gemini for this exact conversation - there is no predefined/scripted
+    response anywhere in this function.
+    """
+    user_message = (user_message or "").strip()
+    if not user_message:
+        return {"status": "error", "message": "Please type a question first."}
+
+    try:
+        model = get_gemini_client()
+    except GeminiConfigError as e:
+        return {"status": "error", "message": str(e)}
+
+    context_block = context_text if context_text else "No personalized context available yet - answer generally and helpfully."
+
+    # Keep the last several turns only, to keep the prompt compact while
+    # still giving Gemini real multi-turn conversational memory.
+    recent_history = conversation_history[-10:]
+    history_lines = "\n".join(
+        f"{'Student' if turn['role'] == 'user' else 'AI Career Assistant'}: {turn['content']}"
+        for turn in recent_history
+    )
+
+    prompt = f"""You are the AI Career Chatbot inside the CoActions career guidance
+platform. You help students with questions about:
+{CHATBOT_TOPIC_CATEGORIES}
+Answer conversationally, clearly, and encouragingly (plain text, no
+markdown headers, no JSON). Keep answers focused and reasonably concise
+(roughly 2-6 sentences, longer only if the question genuinely needs a
+list or steps). Ground your answer in the student's own context below
+where relevant, and be specific to their selected career rather than
+generic when their context provides one. If the student asks something
+completely unrelated to careers, education, skills, or this platform,
+politely redirect them to ask a career-related question instead. Every
+answer must be generated freshly for this exact question - never reuse a
+generic canned response.
+
+STUDENT CONTEXT:
+{context_block}
+
+CONVERSATION SO FAR:
+{history_lines}
+
+Respond as the AI Career Assistant, replying to the student's most recent
+message above. Output ONLY your reply text."""
+
+    try:
+        response = model.generate_content(
+            prompt,
+            generation_config={
+                "max_output_tokens": 1024,
+                "thinking_config": {"thinking_budget": 0},
+            },
+        )
+        answer_text = (getattr(response, "text", "") or "").strip()
+    except Exception as e:
+        return {"status": "error", "message": f"Something went wrong while getting a response. Please try again. ({str(e)})"}
+
+    if not answer_text:
+        return {"status": "error", "message": "The AI didn't return an answer. Please try again."}
+
+    return {"status": "success", "answer": answer_text}
+
+
 def get_user_type_from_grade(grade):
     """Determine user type based on grade/year"""
     school_grades = ["9th", "10th", "11th", "12th"]
@@ -3328,7 +4759,7 @@ def show_header():
         st.image("logo.png", width=200)
     with col2:
         with st.container(key="header_menu_row"):
-            menu_col1, menu_col2, menu_col3, menu_col4 = st.columns(4)
+            menu_col1, menu_col2, menu_col3, menu_col4, menu_col5 = st.columns(5)
             with menu_col1:
                 if st.button("🏠 Home", key="menu_home", use_container_width=True):
                     # Reset all session state for home
@@ -3355,6 +4786,15 @@ def show_header():
                     if st.session_state.page != 'help':
                         st.session_state.help_return_page = st.session_state.page
                     st.session_state.page = 'help'
+                    st.rerun()
+            with menu_col5:
+                if st.button("🤖 AI Chat", key="menu_chatbot", use_container_width=True):
+                    # Same "remember where we came from" pattern as Help -
+                    # the chatbot never resets or touches any other
+                    # assessment/session data either.
+                    if st.session_state.page != 'career_chatbot':
+                        st.session_state.chatbot_return_page = st.session_state.page
+                    st.session_state.page = 'career_chatbot'
                     st.rerun()
 
 def show_help():
@@ -4501,10 +5941,724 @@ def show_role_detail():
         section("Top Hiring Companies", "🏢", detail.get("top_hiring_companies", []))
         section("Future Demand", "🔮", detail.get("future_demand", ""))
 
+    if detail:
+        if st.button(f"🗓️ View 12-Month Roadmap for {role_name}", type="primary", use_container_width=True):
+            st.session_state.roadmap_career_name = role_name
+            st.session_state.learning_roadmap = None
+            st.session_state.roadmap_return_page = 'role_detail'
+            st.session_state.page = 'learning_roadmap'
+            st.rerun()
+
+        if st.button(f"🧭 View AI Skill Gap Analysis for {role_name}", use_container_width=True):
+            st.session_state.skillgap_career_name = role_name
+            st.session_state.skill_gap_analysis = None
+            st.session_state.skillgap_return_page = 'role_detail'
+            st.session_state.page = 'skill_gap'
+            st.rerun()
+
+        if st.button(f"📄 Get AI Resume Suggestions for {role_name}", use_container_width=True):
+            st.session_state.resume_career_name = role_name
+            st.session_state.resume_suggestions = None
+            st.session_state.resume_suggestions_return_page = 'role_detail'
+            st.session_state.page = 'resume_suggestions'
+            st.rerun()
+
     st.markdown("<hr>", unsafe_allow_html=True)
 
     if st.button("← Back", use_container_width=True):
         st.session_state.page = st.session_state.get('role_detail_return_page') or 'report'
+        st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def show_learning_roadmap():
+    """
+    Student -> Select Recommended Career -> AI-generated 12-Month Learning
+    Roadmap, displayed as a vertical timeline. Entirely Gemini-generated
+    (no JSON template / hardcoded roadmap of any kind) using student
+    details, student type, the selected career, questionnaire responses,
+    and the personality/learning-style assessment when available. Cached
+    in st.session_state.learning_roadmap and only regenerated when the
+    underlying inputs (career or questionnaire responses) change.
+    """
+    show_header()
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+
+    career_name = st.session_state.get('roadmap_career_name')
+
+    if not career_name:
+        st.warning("No career selected yet for a roadmap. Please go back and select a career first.")
+        if st.button("← Back to Report", use_container_width=True):
+            st.session_state.page = 'report'
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        return
+
+    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.6rem;">🗓️ 12-Month Learning Roadmap</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p class="sub-message" style="text-align:center;">for {career_name}</p>', unsafe_allow_html=True)
+
+    student_details = {
+        'name': st.session_state.student_name,
+        'age': st.session_state.student_age,
+        'institution': st.session_state.student_institution,
+        'city': st.session_state.student_city,
+        'state': st.session_state.student_state,
+        'grade': st.session_state.student_grade,
+    }
+
+    # CACHING POLICY: regenerated ONLY if the questionnaire responses,
+    # student type, personality pathway, or the selected career changes -
+    # never on every rerun/navigation, matching the same caching pattern
+    # used for AI Analysis / Career Overview / Career Detail above.
+    current_fp = make_response_fingerprint(
+        st.session_state.responses,
+        st.session_state.user_type,
+        st.session_state.get('personality_pathway'),
+        career_name,
+    )
+    if st.session_state.learning_roadmap is None or st.session_state.learning_roadmap_fingerprint != current_fp:
+        with st.spinner(f"Generating your personalized 12-month roadmap for {career_name}..."):
+            result = generate_ai_learning_roadmap(
+                student_details,
+                st.session_state.responses,
+                st.session_state.get('personality_pathway'),
+                career_name,
+                st.session_state.user_type,
+            )
+        st.session_state.learning_roadmap_status = result
+        st.session_state.learning_roadmap_fingerprint = current_fp
+
+    roadmap = st.session_state.learning_roadmap
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    if not roadmap:
+        msg = (st.session_state.learning_roadmap_status or {}).get(
+            'message', 'This learning roadmap could not be generated right now.'
+        )
+        error_html = (
+            f'<div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">'
+            f'<p>⚠️ {msg}</p>'
+            f'</div>'
+        )
+        st.markdown(error_html, unsafe_allow_html=True)
+        if st.session_state.get('learning_roadmap_error'):
+            with st.expander("Technical details (for debugging)"):
+                st.code(st.session_state.learning_roadmap_error)
+        if st.button("🔁 Retry", use_container_width=True):
+            st.session_state.learning_roadmap = None
+            st.rerun()
+    else:
+        level_label = "Beginner Level" if st.session_state.user_type == 'school' else "Advanced / Industry Level"
+        overview_html = (
+            f'<div class="roadmap-overview-card">'
+            f'<strong>📌 Roadmap Level:</strong> {level_label}<br><br>'
+            f'<p>{roadmap.get("roadmap_overview", "")}</p>'
+            f'</div>'
+        )
+        st.markdown(overview_html, unsafe_allow_html=True)
+
+        st.markdown('<div class="roadmap-timeline">', unsafe_allow_html=True)
+        for month in roadmap.get('months', []):
+            month_num = month.get('month_number', '')
+
+            def bullet_list(items):
+                items = items or []
+                if not items:
+                    return "<li><em>None this month</em></li>"
+                return "".join(f"<li>{item}</li>" for item in items)
+
+            certs = month.get('certifications', []) or []
+            cert_html = (
+                "".join(f'<span class="roadmap-cert-chip">📜 {c}</span>' for c in certs)
+                if certs else "<em>No certification this month</em>"
+            )
+
+            month_html = (
+                f'<div class="roadmap-month">'
+                f'<div class="roadmap-month-dot">{month_num}</div>'
+                f'<div class="roadmap-month-card">'
+                f'<h4>Month {month_num}: {month.get("month_title", "")}</h4>'
+                f'<div class="roadmap-section-label">🧠 Skills to Learn</div>'
+                f'<ul>{bullet_list(month.get("skills_to_learn"))}</ul>'
+                f'<div class="roadmap-section-label">📖 Topics</div>'
+                f'<ul>{bullet_list(month.get("topics"))}</ul>'
+                f'<div class="roadmap-section-label">✍️ Practice Activities</div>'
+                f'<ul>{bullet_list(month.get("practice_activities"))}</ul>'
+                f'<div class="roadmap-section-label">🛠️ Mini Projects</div>'
+                f'<ul>{bullet_list(month.get("mini_projects"))}</ul>'
+                f'<div class="roadmap-section-label">🆓 Recommended Free Resources</div>'
+                f'<ul>{bullet_list(month.get("free_resources"))}</ul>'
+                f'<div class="roadmap-section-label">📜 Certifications</div>'
+                f'<div>{cert_html}</div>'
+                f'</div>'
+                f'</div>'
+            )
+            st.markdown(month_html, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    if st.button("← Back", use_container_width=True):
+        st.session_state.page = st.session_state.get('roadmap_return_page') or 'report'
+        st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def show_skill_gap_analysis():
+    """
+    Student -> Select Career -> AI Skill Gap Analysis, displayed with
+    progress bars and cards. Entirely Gemini-generated (no predefined/
+    static skill list of any kind) by comparing the student's current
+    abilities (questionnaire signal, personality/learning-style, and any
+    prior AI-identified strengths) against the industry skills Gemini
+    itself determines are required for the selected career. Cached in
+    st.session_state.skill_gap_analysis and only regenerated when the
+    underlying inputs (career or questionnaire responses) change.
+    """
+    show_header()
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+
+    career_name = st.session_state.get('skillgap_career_name')
+
+    if not career_name:
+        st.warning("No career selected yet for a skill gap analysis. Please go back and select a career first.")
+        if st.button("← Back to Report", use_container_width=True):
+            st.session_state.page = 'report'
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        return
+
+    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.6rem;">🧭 AI Skill Gap Analysis</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p class="sub-message" style="text-align:center;">for {career_name}</p>', unsafe_allow_html=True)
+
+    student_details = {
+        'name': st.session_state.student_name,
+        'age': st.session_state.student_age,
+        'institution': st.session_state.student_institution,
+        'city': st.session_state.student_city,
+        'state': st.session_state.student_state,
+        'grade': st.session_state.student_grade,
+    }
+
+    # CACHING POLICY: regenerated ONLY if the questionnaire responses,
+    # student type, personality pathway, or the selected career changes -
+    # never on every rerun/navigation, matching the same caching pattern
+    # used for the 12-Month Learning Roadmap above.
+    current_fp = make_response_fingerprint(
+        st.session_state.responses,
+        st.session_state.user_type,
+        st.session_state.get('personality_pathway'),
+        career_name,
+    )
+    if st.session_state.skill_gap_analysis is None or st.session_state.skill_gap_analysis_fingerprint != current_fp:
+        with st.spinner(f"Analyzing your skill gap for {career_name}..."):
+            result = generate_ai_skill_gap_analysis(
+                student_details,
+                st.session_state.responses,
+                st.session_state.get('personality_pathway'),
+                st.session_state.get('ai_analysis'),
+                career_name,
+                st.session_state.user_type,
+            )
+        st.session_state.skill_gap_analysis_status = result
+        st.session_state.skill_gap_analysis_fingerprint = current_fp
+
+    analysis = st.session_state.skill_gap_analysis
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    if not analysis:
+        msg = (st.session_state.skill_gap_analysis_status or {}).get(
+            'message', 'This skill gap analysis could not be generated right now.'
+        )
+        st.markdown(f"""
+        <div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">
+            <p>⚠️ {msg}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.session_state.get('skill_gap_analysis_error'):
+            with st.expander("Technical details (for debugging)"):
+                st.code(st.session_state.skill_gap_analysis_error)
+        if st.button("🔁 Retry", use_container_width=True):
+            st.session_state.skill_gap_analysis = None
+            st.rerun()
+    else:
+        # ---- Overall Readiness ----
+        readiness_score = analysis.get('overall_readiness_score', 0) or 0
+        st.markdown(
+            f'<div class="skillgap-readiness-card">'
+            f'<span class="skillgap-readiness-score">{readiness_score}%</span> '
+            f'<strong>Overall Career Readiness</strong>'
+            f'<p style="margin-top:0.5rem;">{analysis.get("readiness_summary", "")}</p>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        st.progress(max(0, min(100, int(readiness_score))) / 100)
+
+        # ---- Current Strengths ----
+        st.markdown('<div class="skillgap-section-title">💪 Current Strengths</div>', unsafe_allow_html=True)
+        for item in analysis.get('current_strengths', []):
+            score = max(0, min(100, int(item.get('proficiency_score', 0) or 0)))
+            st.markdown(
+                f'<div class="skillgap-card">'
+                f'<div class="skillgap-card-title">{item.get("skill_name", "")} — {score}%</div>'
+                f'<div class="skillgap-bar-track"><div class="skillgap-bar-fill-strength" style="width:{score}%;"></div></div>'
+                f'<div class="skillgap-card-explanation">{item.get("explanation", "")}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ---- Missing Skills ----
+        st.markdown('<div class="skillgap-section-title">🧩 Missing Skills</div>', unsafe_allow_html=True)
+        importance_class_map = {"critical": "critical", "high": "high", "medium": "medium"}
+        for item in analysis.get('missing_skills', []):
+            importance = (item.get('importance') or 'Medium')
+            badge_class = importance_class_map.get(importance.strip().lower(), 'medium')
+            st.markdown(
+                f'<div class="skillgap-card">'
+                f'<span class="skillgap-badge skillgap-badge-{badge_class}">{importance}</span>'
+                f'<div class="skillgap-card-title">{item.get("skill_name", "")}</div>'
+                f'<div class="skillgap-card-explanation">{item.get("explanation", "")}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ---- Priority Skills ----
+        st.markdown('<div class="skillgap-section-title">🎯 Priority Skills</div>', unsafe_allow_html=True)
+        for item in analysis.get('priority_skills', []):
+            st.markdown(
+                f'<div class="skillgap-card" style="display:flex; align-items:flex-start;">'
+                f'<span class="skillgap-priority-rank">{item.get("priority_rank", "")}</span>'
+                f'<div>'
+                f'<div class="skillgap-card-title">{item.get("skill_name", "")}</div>'
+                f'<div class="skillgap-card-explanation">{item.get("reason", "")}</div>'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ---- Learning Difficulty ----
+        st.markdown('<div class="skillgap-section-title">⚙️ Learning Difficulty</div>', unsafe_allow_html=True)
+        difficulty_class_map = {
+            "easy": "easy", "moderate": "moderate", "hard": "hard", "very hard": "very-hard",
+        }
+        for item in analysis.get('learning_difficulty', []):
+            diff_score = max(0, min(100, int(item.get('difficulty_score', 0) or 0)))
+            label = item.get('difficulty_label', 'Moderate')
+            badge_class = difficulty_class_map.get(label.strip().lower(), 'moderate')
+            st.markdown(
+                f'<div class="skillgap-card">'
+                f'<span class="skillgap-badge skillgap-badge-{badge_class}">{label}</span>'
+                f'<div class="skillgap-card-title">{item.get("skill_name", "")}</div>'
+                f'<div class="skillgap-bar-track"><div class="skillgap-bar-fill-difficulty" style="width:{diff_score}%;"></div></div>'
+                f'<div class="skillgap-card-explanation">{item.get("reason", "")}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ---- Recommended Learning Order ----
+        st.markdown('<div class="skillgap-section-title">🗺️ Recommended Learning Order</div>', unsafe_allow_html=True)
+        order_html = ['<div class="skillgap-order-timeline">']
+        for item in analysis.get('recommended_learning_order', []):
+            order_html.append(
+                f'<div class="skillgap-order-item">'
+                f'<div class="skillgap-order-dot">{item.get("order", "")}</div>'
+                f'<div class="skillgap-card" style="margin-bottom:0;">'
+                f'<div class="skillgap-card-title">{item.get("skill_name", "")}</div>'
+                f'<div class="skillgap-card-explanation">{item.get("rationale", "")}</div>'
+                f'</div>'
+                f'</div>'
+            )
+        order_html.append('</div>')
+        st.markdown("".join(order_html), unsafe_allow_html=True)
+
+        # ---- Estimated Learning Time ----
+        st.markdown('<div class="skillgap-section-title">⏱️ Estimated Learning Time</div>', unsafe_allow_html=True)
+        for item in analysis.get('estimated_learning_time', []):
+            st.markdown(
+                f'<div class="skillgap-card">'
+                f'<div class="skillgap-card-title">{item.get("skill_name", "")}</div>'
+                f'<span class="skillgap-time-chip">⏳ {item.get("estimated_duration", "")}</span>'
+                f'<span class="skillgap-time-chip">📅 {item.get("weekly_commitment", "")}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    if st.button("← Back", use_container_width=True):
+        st.session_state.page = st.session_state.get('skillgap_return_page') or 'report'
+        st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def _build_resume_context_strings():
+    """
+    Gather whatever real skills/roadmap context already exists in
+    st.session_state from earlier steps (Career Detail's required_skills,
+    the Skill Gap Analysis, and/or the 12-Month Learning Roadmap) and
+    format it into short text blocks to feed into the resume suggestions
+    prompt. Returns (skills_context, roadmap_context) strings, either of
+    which may be empty if that data hasn't been generated yet - the
+    prompt itself handles the "not available" case.
+    """
+    skills_parts = []
+
+    role_detail = st.session_state.get('ai_role_detail')
+    if role_detail and role_detail.get('required_skills'):
+        skills_parts.append(
+            "Required Skills (from Career Detail): "
+            + ", ".join(role_detail.get('required_skills', [])[:10])
+        )
+
+    skill_gap = st.session_state.get('skill_gap_analysis')
+    if skill_gap:
+        strengths = [s.get('skill_name', '') for s in skill_gap.get('current_strengths', [])]
+        missing = [s.get('skill_name', '') for s in skill_gap.get('missing_skills', [])]
+        if strengths:
+            skills_parts.append("Current Strengths (from Skill Gap Analysis): " + ", ".join(strengths[:8]))
+        if missing:
+            skills_parts.append("Skills Being Developed (from Skill Gap Analysis): " + ", ".join(missing[:8]))
+
+    skills_context = "\n".join(skills_parts)
+
+    roadmap_parts = []
+    roadmap = st.session_state.get('learning_roadmap')
+    if roadmap and roadmap.get('months'):
+        for month in roadmap.get('months', [])[:12]:
+            month_skills = month.get('skills_to_learn') or []
+            if month_skills:
+                roadmap_parts.append(
+                    f"Month {month.get('month_number', '')} ({month.get('month_title', '')}): "
+                    + ", ".join(month_skills)
+                )
+    roadmap_context = "\n".join(roadmap_parts)
+
+    return skills_context, roadmap_context
+
+
+def show_resume_suggestions():
+    """
+    Student -> Recommended Career -> Skills -> Roadmap -> AI Resume
+    Suggestions, displayed as cards. Entirely Gemini-generated - produces
+    SUGGESTIONS only (headline options, objective options, and
+    recommendation cards for skills/projects/certifications/achievements/
+    portfolio/internships), never a complete or fabricated resume. Cached
+    in st.session_state.resume_suggestions and only regenerated when the
+    underlying inputs (career or available skills/roadmap context) change.
+    """
+    show_header()
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+
+    career_name = st.session_state.get('resume_career_name')
+
+    if not career_name:
+        st.warning("No career selected yet for resume suggestions. Please go back and select a career first.")
+        if st.button("← Back to Report", use_container_width=True):
+            st.session_state.page = 'report'
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        return
+
+    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.6rem;">📄 AI Resume Suggestions</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p class="sub-message" style="text-align:center;">for {career_name}</p>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="resume-note-card">✨ These are personalized <strong>suggestions</strong> to guide '
+        'what you build and include on your resume - not a finished resume. Use them as a checklist '
+        'while you build your real experience.</div>',
+        unsafe_allow_html=True,
+    )
+
+    student_details = {
+        'name': st.session_state.student_name,
+        'age': st.session_state.student_age,
+        'institution': st.session_state.student_institution,
+        'city': st.session_state.student_city,
+        'state': st.session_state.student_state,
+        'grade': st.session_state.student_grade,
+    }
+
+    skills_context, roadmap_context = _build_resume_context_strings()
+
+    # CACHING POLICY: regenerated ONLY if the selected career or the
+    # available skills/roadmap context changes - never on every
+    # rerun/navigation, matching the same caching pattern used elsewhere
+    # in the app.
+    current_fp = make_response_fingerprint(
+        st.session_state.user_type,
+        career_name,
+        skills_context,
+        roadmap_context,
+    )
+    if st.session_state.resume_suggestions is None or st.session_state.resume_suggestions_fingerprint != current_fp:
+        with st.spinner(f"Generating personalized resume suggestions for {career_name}..."):
+            result = generate_ai_resume_suggestions(
+                student_details,
+                career_name,
+                st.session_state.user_type,
+                skills_context,
+                roadmap_context,
+            )
+        st.session_state.resume_suggestions_status = result
+        st.session_state.resume_suggestions_fingerprint = current_fp
+
+    suggestions = st.session_state.resume_suggestions
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    if not suggestions:
+        msg = (st.session_state.resume_suggestions_status or {}).get(
+            'message', 'These resume suggestions could not be generated right now.'
+        )
+        st.markdown(f"""
+        <div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">
+            <p>⚠️ {msg}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.session_state.get('resume_suggestions_error'):
+            with st.expander("Technical details (for debugging)"):
+                st.code(st.session_state.resume_suggestions_error)
+        if st.button("🔁 Retry", use_container_width=True):
+            st.session_state.resume_suggestions = None
+            st.rerun()
+    else:
+        # ---- Resume Headline options ----
+        st.markdown('<div class="resume-section-title">🏷️ Resume Headline</div>', unsafe_allow_html=True)
+        for idx, headline in enumerate(suggestions.get('resume_headline', []), start=1):
+            st.markdown(
+                f'<div class="resume-card">'
+                f'<span class="resume-option-badge">Option {idx}</span>'
+                f'<div class="resume-card-body">{headline}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ---- Career Objective options ----
+        st.markdown('<div class="resume-section-title">🎯 Career Objective</div>', unsafe_allow_html=True)
+        for idx, objective in enumerate(suggestions.get('career_objective', []), start=1):
+            st.markdown(
+                f'<div class="resume-card">'
+                f'<span class="resume-option-badge">Option {idx}</span>'
+                f'<div class="resume-card-body">{objective}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ---- Key Skills ----
+        st.markdown('<div class="resume-section-title">🛠️ Key Skills to Feature</div>', unsafe_allow_html=True)
+        chips_html = "".join(
+            f'<span class="resume-skill-chip">{item.get("skill_name", "")}</span>'
+            for item in suggestions.get('key_skills', [])
+        )
+        st.markdown(f'<div class="resume-card">{chips_html}</div>', unsafe_allow_html=True)
+        for item in suggestions.get('key_skills', []):
+            st.markdown(
+                f'<div class="resume-card">'
+                f'<div class="resume-card-title">{item.get("skill_name", "")}</div>'
+                f'<div class="resume-card-reason">{item.get("reason", "")}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ---- Projects to Include ----
+        st.markdown('<div class="resume-section-title">🧪 Projects to Include</div>', unsafe_allow_html=True)
+        for item in suggestions.get('projects_to_include', []):
+            st.markdown(
+                f'<div class="resume-card">'
+                f'<div class="resume-card-title">{item.get("project_title", "")}</div>'
+                f'<div class="resume-card-body">{item.get("description", "")}</div>'
+                f'<div class="resume-card-reason">{item.get("relevance", "")}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ---- Certifications ----
+        st.markdown('<div class="resume-section-title">📜 Certifications</div>', unsafe_allow_html=True)
+        cert_chips_html = "".join(
+            f'<span class="resume-cert-chip">📜 {item.get("certification_name", "")}</span>'
+            for item in suggestions.get('certifications', [])
+        )
+        st.markdown(f'<div class="resume-card">{cert_chips_html}</div>', unsafe_allow_html=True)
+        for item in suggestions.get('certifications', []):
+            st.markdown(
+                f'<div class="resume-card">'
+                f'<div class="resume-card-title">{item.get("certification_name", "")}</div>'
+                f'<div class="resume-card-reason">{item.get("reason", "")}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ---- Achievements ----
+        st.markdown('<div class="resume-section-title">🏆 Achievements to Pursue/Highlight</div>', unsafe_allow_html=True)
+        for item in suggestions.get('achievements', []):
+            st.markdown(
+                f'<div class="resume-card">'
+                f'<div class="resume-card-title">{item.get("suggestion", "")}</div>'
+                f'<div class="resume-card-reason">{item.get("reason", "")}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ---- Portfolio Suggestions ----
+        st.markdown('<div class="resume-section-title">💼 Portfolio Suggestions</div>', unsafe_allow_html=True)
+        for item in suggestions.get('portfolio_suggestions', []):
+            st.markdown(
+                f'<div class="resume-card">'
+                f'<div class="resume-card-title">{item.get("suggestion", "")}</div>'
+                f'<span class="resume-option-badge">{item.get("platform_or_format", "")}</span>'
+                f'<div class="resume-card-reason">{item.get("reason", "")}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+        # ---- Internship Suggestions ----
+        st.markdown('<div class="resume-section-title">🤝 Internship Suggestions</div>', unsafe_allow_html=True)
+        for item in suggestions.get('internship_suggestions', []):
+            st.markdown(
+                f'<div class="resume-card">'
+                f'<div class="resume-card-title">{item.get("internship_type", "")}</div>'
+                f'<div class="resume-card-reason">{item.get("reason", "")}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    if st.button("← Back", use_container_width=True):
+        st.session_state.page = st.session_state.get('resume_suggestions_return_page') or 'report'
+        st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def _send_chatbot_message(user_text):
+    """
+    Shared send-and-respond flow used by both the free-text chat input and
+    the suggested-question buttons: appends the student's message, shows
+    the user bubble, shows an animated typing indicator while Gemini
+    generates a fresh reply grounded in this student's context and the
+    ongoing conversation, then replaces the indicator with the real reply
+    and appends it to st.session_state.chatbot_messages.
+    """
+    user_text = (user_text or "").strip()
+    if not user_text:
+        return
+
+    st.session_state.chatbot_messages.append({"role": "user", "content": user_text})
+    with st.chat_message("user"):
+        st.markdown(user_text)
+
+    with st.chat_message("assistant"):
+        placeholder = st.empty()
+        placeholder.markdown(
+            '<div class="typing-indicator"><span></span><span></span><span></span></div>',
+            unsafe_allow_html=True,
+        )
+        context_text = _build_chatbot_context()
+        result = generate_chatbot_reply(user_text, context_text, st.session_state.chatbot_messages[:-1])
+        if result["status"] == "success":
+            placeholder.markdown(result["answer"])
+            st.session_state.chatbot_messages.append({"role": "assistant", "content": result["answer"]})
+            st.session_state.chatbot_error = None
+        else:
+            placeholder.markdown(f"⚠️ {result['message']}")
+            st.session_state.chatbot_error = result["message"]
+
+
+def show_career_chatbot():
+    """
+    AI Career Chatbot. Answers student questions about career
+    recommendations, career analysis, the learning roadmap, skills,
+    education, higher studies, job roles, certifications, resume, and
+    interview preparation - powered entirely by Gemini AI, with NO
+    predefined/scripted responses anywhere. Conversation history is
+    maintained purely via st.session_state.chatbot_messages (reset with
+    "Clear Chat"). Grounded in whatever real personalized context already
+    exists for this student (career, skills, roadmap, etc.), gathered
+    fresh on every message via _build_chatbot_context().
+    """
+    show_header()
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+
+    st.markdown('<h1 class="welcome-heading" style="font-size:1.6rem;">🤖 AI Career Chatbot</h1>', unsafe_allow_html=True)
+    st.markdown(
+        '<p class="sub-message" style="text-align:center;">Ask me anything about your career journey</p>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="chatbot-intro-card">💬 I can help with Career Recommendations, Career Analysis, your '
+        'Learning Roadmap, Skills, Education, Higher Studies, Job Roles, Certifications, Resume, and '
+        'Interview Preparation - grounded in your own answers and results so far.</div>',
+        unsafe_allow_html=True,
+    )
+
+    header_col1, header_col2 = st.columns([5, 1.3])
+    with header_col2:
+        with st.container(key="chatbot_clear_row"):
+            if st.button("🗑️ Clear Chat", use_container_width=True):
+                st.session_state.chatbot_messages = []
+                st.session_state.chatbot_error = None
+                st.rerun()
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    # ---- Suggested Questions ----
+    # Regenerated only when the student's underlying context changes (a
+    # new career selected, or new skills/roadmap/resume content
+    # generated) - not on every rerun.
+    context_text = _build_chatbot_context()
+    context_fp = make_response_fingerprint(context_text)
+    if (
+        st.session_state.chatbot_suggested_questions is None
+        or st.session_state.chatbot_suggested_questions_fingerprint != context_fp
+    ):
+        st.session_state.chatbot_suggested_questions = generate_chatbot_suggested_questions(context_text)
+        st.session_state.chatbot_suggested_questions_fingerprint = context_fp
+
+    suggested = st.session_state.chatbot_suggested_questions or []
+    if suggested:
+        st.markdown('<div class="chatbot-suggested-label">💡 Suggested Questions</div>', unsafe_allow_html=True)
+        with st.container(key="chatbot_suggested_row"):
+            cols = st.columns(2)
+            clicked_question = None
+            for i, question in enumerate(suggested):
+                with cols[i % 2]:
+                    if st.button(question, key=f"chatbot_suggested_{i}", use_container_width=True):
+                        clicked_question = question
+            if clicked_question:
+                st.session_state.chatbot_pending_message = clicked_question
+                st.rerun()
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    # ---- Conversation history ----
+    for message in st.session_state.chatbot_messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    if st.session_state.chatbot_error:
+        st.caption(f"⚠️ Last message failed: {st.session_state.chatbot_error}")
+
+    # A suggested-question click sets chatbot_pending_message and reruns;
+    # handle it here so it goes through the exact same send flow as
+    # typed messages.
+    pending_message = st.session_state.chatbot_pending_message
+    if pending_message:
+        st.session_state.chatbot_pending_message = None
+        _send_chatbot_message(pending_message)
+
+    typed_message = st.chat_input("Type your question about careers, skills, roadmap, interviews...")
+    if typed_message:
+        _send_chatbot_message(typed_message)
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    if st.button("← Back", use_container_width=True):
+        st.session_state.page = st.session_state.get('chatbot_return_page') or 'report'
         st.rerun()
 
     st.markdown('</div>', unsafe_allow_html=True)
@@ -4534,6 +6688,38 @@ def show_report():
         <p>{stream['explanation']}</p>
     </div>
     """, unsafe_allow_html=True)
+
+    # Student -> Select Recommended Career -> 12-Month Learning Roadmap.
+    # This is the entry point into the AI-generated learning roadmap for
+    # whichever career/stream the student has selected here.
+    if st.button("🗓️ View 12-Month Learning Roadmap", type="primary", use_container_width=True):
+        st.session_state.roadmap_career_name = stream['stream_name']
+        st.session_state.learning_roadmap = None
+        st.session_state.roadmap_return_page = 'report'
+        st.session_state.page = 'learning_roadmap'
+        st.rerun()
+
+    # Student -> Select Recommended Career -> AI Skill Gap Analysis. Entry
+    # point for comparing the student's current abilities against the
+    # industry skills Gemini determines this career requires.
+    if st.button("🧭 View AI Skill Gap Analysis", use_container_width=True):
+        st.session_state.skillgap_career_name = stream['stream_name']
+        st.session_state.skill_gap_analysis = None
+        st.session_state.skillgap_return_page = 'report'
+        st.session_state.page = 'skill_gap'
+        st.rerun()
+
+    # Student -> Recommended Career -> Skills -> Roadmap -> AI Resume
+    # Suggestions. Pulls in whatever skills/roadmap context has already
+    # been generated for this career, if any.
+    if st.button("📄 Get AI Resume Suggestions", use_container_width=True):
+        st.session_state.resume_career_name = stream['stream_name']
+        st.session_state.resume_suggestions = None
+        st.session_state.resume_suggestions_return_page = 'report'
+        st.session_state.page = 'resume_suggestions'
+        st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
 
     student_details = {
         'name': st.session_state.student_name,
@@ -4787,6 +6973,14 @@ def main():
         show_report()
     elif st.session_state.page == 'role_detail':
         show_role_detail()
+    elif st.session_state.page == 'learning_roadmap':
+        show_learning_roadmap()
+    elif st.session_state.page == 'skill_gap':
+        show_skill_gap_analysis()
+    elif st.session_state.page == 'resume_suggestions':
+        show_resume_suggestions()
+    elif st.session_state.page == 'career_chatbot':
+        show_career_chatbot()
     elif st.session_state.page == 'help':
         show_help()
 
