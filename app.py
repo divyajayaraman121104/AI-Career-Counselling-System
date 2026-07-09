@@ -606,11 +606,17 @@ st.markdown("""
         font-weight: 700;
         margin: var(--space-sm) 0 var(--space-xs) 0;
     }
-    .deco-icon {
+    .st-key-home_banner_wrap {
         text-align: center;
-        font-size: 2.2rem;
-        letter-spacing: 0.6rem;
-        margin-bottom: var(--space-xs);
+        margin-bottom: 18px;
+    }
+    .st-key-home_banner_wrap img {
+        max-width: 260px;
+        width: 100%;
+        height: auto;
+        margin: 0 auto;
+        display: block;
+        object-fit: contain;
     }
     .student-info-card {
         background: rgba(102,126,234,0.08);
@@ -2437,12 +2443,13 @@ def _log_gemini_debug_info(label, response, response_text):
 # no manual help-text edits required.
 
 APP_STRUCTURE_CONTEXT = """
-APP NAME: CoActions - AI Career Guidance Platform
+APP NAME: AI Career Guidance Platform (built by CoActions)
 
-WHAT IT DOES: CoActions is a Streamlit web app that uses Google's Gemini AI
-to give students personalized career guidance. There are no static/fixed
-career lists - every recommendation, analysis, and report is generated live
-by AI based on what the individual student answers.
+WHAT IT DOES: The AI Career Guidance Platform is a Streamlit web app,
+built by CoActions, that uses Google's Gemini AI to give students
+personalized career guidance. There are no static/fixed career lists -
+every recommendation, analysis, and report is generated live by AI based
+on what the individual student answers.
 
 WHO USES IT: Students in two groups -
   - School Students: Classes/Grades 9th, 10th, 11th, 12th.
@@ -2488,8 +2495,9 @@ FULL APP FLOW (in order):
     AI Learning Roadmap with stage-by-stage checkboxes they can track
     progress against.
 
-OTHER NAVIGATION: Home (restarts the assessment), About (what CoActions
-is), Contact (support email/website), Help (this AI-powered help center).
+OTHER NAVIGATION: Home (restarts the assessment), About (what the AI
+Career Guidance Platform and CoActions are), Contact (support
+email/website), Help (this AI-powered help center).
 
 IMPORTANT CONTEXT FOR YOUR ANSWERS: Every recommendation, analysis, skill
 list, roadmap, and report in this app is generated dynamically by Gemini AI
@@ -2507,16 +2515,16 @@ def _build_help_guide_prompt():
     FAQ, and tips) as a single structured JSON object, based on the current
     app structure described in APP_STRUCTURE_CONTEXT.
     """
-    return f"""You are the in-app AI assistant for the CoActions career
-guidance platform. Using ONLY the app structure described below, write a
-friendly, clear, student-facing Help Guide.
+    return f"""You are the in-app AI assistant for the AI Career Guidance
+Platform (built by CoActions). Using ONLY the app structure described
+below, write a friendly, clear, student-facing Help Guide.
 
 {APP_STRUCTURE_CONTEXT}
 
 Return ONLY a single JSON object (no markdown fences, no extra text) with
 EXACTLY this shape:
 {{
-  "app_overview": "<2-4 sentences explaining what CoActions does>",
+  "app_overview": "<2-4 sentences explaining what the AI Career Guidance Platform does>",
   "who_can_use": "<1-3 sentences on who this app is for>",
   "school_vs_college": "<2-4 sentences clearly explaining the difference between how School Students and College Students use the app>",
   "steps": [
@@ -2660,17 +2668,18 @@ def generate_help_search_answer(user_question):
     except GeminiConfigError as e:
         return {"status": "error", "message": str(e)}
 
-    prompt = f"""You are the in-app AI assistant for the CoActions career
-guidance platform. Using ONLY the app structure described below, answer the
-student's question clearly and concisely (2-5 sentences, plain text, no
-markdown headers, no JSON).
+    prompt = f"""You are the in-app AI assistant for the AI Career Guidance
+Platform (built by CoActions). Using ONLY the app structure described below,
+answer the student's question clearly and concisely (2-5 sentences, plain
+text, no markdown headers, no JSON).
 
 {APP_STRUCTURE_CONTEXT}
 
 STUDENT QUESTION: {user_question}
 
 Answer the question directly. If the question is unrelated to using this
-app, politely say you can only help with questions about using CoActions."""
+app, politely say you can only help with questions about using the AI
+Career Guidance Platform."""
 
     try:
         response = model.generate_content(
@@ -4633,7 +4642,7 @@ def generate_chatbot_suggested_questions(context_text):
     context_block = context_text if context_text else "No personalized context available yet - suggest general-purpose starter questions."
 
     prompt = f"""You are generating SUGGESTED STARTER QUESTIONS for an AI career chatbot
-inside the CoActions platform. The chatbot answers questions about:
+inside the AI Career Guidance Platform (built by CoActions). The chatbot answers questions about:
 {CHATBOT_TOPIC_CATEGORIES}
 STUDENT CONTEXT:
 {context_block}
@@ -4699,8 +4708,8 @@ def generate_chatbot_reply(user_message, context_text, conversation_history):
         for turn in recent_history
     )
 
-    prompt = f"""You are the AI Career Chatbot inside the CoActions career guidance
-platform. You help students with questions about:
+    prompt = f"""You are the AI Career Chatbot inside the AI Career Guidance
+Platform (built by CoActions). You help students with questions about:
 {CHATBOT_TOPIC_CATEGORIES}
 Answer conversationally, clearly, and encouragingly (plain text, no
 markdown headers, no JSON). Keep answers focused and reasonably concise
@@ -4753,6 +4762,24 @@ def get_user_type_from_grade(grade):
         return "school"
 
 # Header with menu
+def show_home_banner(image_path="banner.png"):
+    """
+    Display the professional home-page illustration, centered, with a
+    constrained max-width so it scales cleanly on both desktop and mobile
+    without stretching or distorting. Replaces the old emoji decoration.
+    Fails gracefully (renders nothing) if the image file is missing, so a
+    missing asset never crashes the app.
+    """
+    if not os.path.isfile(image_path):
+        return
+    try:
+        with st.container(key="home_banner_wrap"):
+            st.image(image_path, use_container_width=True)
+    except Exception:
+        # Fail silently - the illustration is decorative, not functional.
+        pass
+
+
 def show_header():
     col1, col2 = st.columns([1.3, 1.7])
     with col1:
@@ -4810,7 +4837,7 @@ def show_help():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     st.markdown('<h1 class="welcome-heading">Help Center</h1>', unsafe_allow_html=True)
     st.markdown(
-        '<p class="welcome-subheading">Your personal AI-generated guide to using CoActions</p>',
+        '<p class="welcome-subheading">Your personal AI-generated guide to using the AI Career Guidance Platform</p>',
         unsafe_allow_html=True,
     )
     st.markdown('<hr>', unsafe_allow_html=True)
@@ -4819,7 +4846,7 @@ def show_help():
     search_col1, search_col2 = st.columns([4, 1])
     with search_col1:
         query = st.text_input(
-            "Ask a question about using CoActions",
+            "Ask a question about using the AI Career Guidance Platform",
             value=st.session_state.help_search_query,
             placeholder="e.g. How are recommendations generated?",
             key="help_search_input",
@@ -4871,7 +4898,7 @@ def show_help():
         st.markdown('<h3 class="section-title">About This App</h3>', unsafe_allow_html=True)
         st.markdown(
             "<div style=\"background:#FFF8F0; border-radius:20px; padding:1.5rem; margin-bottom:1rem;\">"
-            "<p><strong>What CoActions does:</strong> " + guide['app_overview'] + "</p>"
+            "<p><strong>What AI-Career Counselling System does:</strong> " + guide['app_overview'] + "</p>"
             "<p><strong>Who it's for:</strong> " + guide['who_can_use'] + "</p>"
             "<p><strong>School vs. College students:</strong> " + guide['school_vs_college'] + "</p>"
             "</div>",
@@ -5117,9 +5144,9 @@ def show_welcome():
         return
     
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.markdown('<div class="deco-icon">🎓✨🚀</div>', unsafe_allow_html=True)
     st.markdown('<h1 class="welcome-heading">Welcome to the Career Counselling Tool</h1>', unsafe_allow_html=True)
     st.markdown('<p class="welcome-subheading">Discover Your Perfect Career Path with Personalized Guidance</p>', unsafe_allow_html=True)
+    show_home_banner()
     st.markdown('<hr>', unsafe_allow_html=True)
     
     st.markdown('<h3 class="section-title">📝 Student Information</h3>', unsafe_allow_html=True)
