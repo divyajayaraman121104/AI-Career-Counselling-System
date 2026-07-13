@@ -1,5 +1,6 @@
 import streamlit as st
 import json
+import difflib
 from pathlib import Path
 from datetime import datetime
 import base64
@@ -11,6 +12,20 @@ import logging   # MODIFICATION (503 retry): used to log each retry attempt
 from google import genai
 from google.genai import types
 from google.genai import errors as genai_errors  # MODIFICATION (503 retry): needed to detect ServerError/503 specifically
+
+# MODIFICATION (PDF charts): matplotlib is used to render the PDF report's
+# charts (career-match bar chart, skills pie chart, readiness/skill-gap
+# progress bars, roadmap timeline) to PNG images that get embedded into the
+# FPDF reports. Guarded so a missing/broken matplotlib install never breaks
+# PDF generation - chart sections are simply skipped (see MATPLOTLIB_AVAILABLE
+# checks in the chart helper functions above generate_pdf_report()).
+try:
+    import matplotlib
+    matplotlib.use("Agg")  # headless backend - no GUI/display needed on a server
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except Exception:
+    MATPLOTLIB_AVAILABLE = False
 
 
 # MODIFICATION (503 retry): dedicated logger for Gemini reliability events
@@ -1245,6 +1260,33 @@ if 'personality_completed' not in st.session_state:
     st.session_state.personality_completed = False
 if 'personality_pathway' not in st.session_state:
     st.session_state.personality_pathway = None
+# ---- RIASEC AI Career Assessment state ----
+# Entirely separate from the VAK-style personality/learning-style quiz
+# above. riasec_scores holds ONLY the raw arithmetic Likert scores per
+# Holland-code dimension (R/I/A/S/E/C) - no career/description/strength
+# text is ever hardcoded here. All of that (riasec_result: personality
+# type, description, top matching careers, match percentages, strengths,
+# learning style, suitable work environment) is generated fresh by
+# Gemini for every student, cached by response-fingerprint exactly like
+# the other AI content in this app (see AI CONTENT CACHING POLICY below).
+if 'riasec_questions' not in st.session_state:
+    st.session_state.riasec_questions = []
+if 'riasec_responses' not in st.session_state:
+    st.session_state.riasec_responses = {}
+if 'riasec_current_page' not in st.session_state:
+    st.session_state.riasec_current_page = 0
+if 'riasec_completed' not in st.session_state:
+    st.session_state.riasec_completed = False
+if 'riasec_scores' not in st.session_state:
+    st.session_state.riasec_scores = None
+if 'riasec_result' not in st.session_state:
+    st.session_state.riasec_result = None
+if 'riasec_result_status' not in st.session_state:
+    st.session_state.riasec_result_status = None
+if 'riasec_result_error' not in st.session_state:
+    st.session_state.riasec_result_error = None
+if 'riasec_result_fingerprint' not in st.session_state:
+    st.session_state.riasec_result_fingerprint = None
 if 'ai_recommendation' not in st.session_state:
     st.session_state.ai_recommendation = None
 if 'ai_top_streams' not in st.session_state:
@@ -1514,133 +1556,339 @@ def extract_questions_from_json(data):
     
     return questions, categories
 
-def get_personality_questions(user_type):
-    """Get 25 personality questions based on user type"""
-    school_questions = [
-        {"id": 1, "text": "Do you enjoy solving puzzles or math problems in your free time?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 2, "text": "Do you like drawing, painting, or crafting things?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 3, "text": "Are you interested in how computers and games work?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 4, "text": "Do you enjoy reading storybooks or writing small stories?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 5, "text": "Do you like helping classmates with their work?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 6, "text": "Are you curious about stars, planets, or science experiments?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 7, "text": "Do you enjoy organizing events or leading a group?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 8, "text": "Do you like playing sports or outdoor games?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 9, "text": "Do you enjoy listening to music or playing an instrument?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 10, "text": "Do you like fixing broken toys or gadgets?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 11, "text": "Do you enjoy debating or discussing topics with friends?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 12, "text": "Do you like memorizing facts or learning new words?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 13, "text": "Do you enjoy gardening or taking care of pets?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 14, "text": "Do you prefer working alone rather than in a group?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 15, "text": "Are you good at explaining things to others?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 16, "text": "Do you enjoy acting or performing on stage?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 17, "text": "Do you like collecting things like stamps, coins, or rocks?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 18, "text": "Do you enjoy cooking or baking with family?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 19, "text": "Do you like learning new languages?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 20, "text": "Do you enjoy solving riddles or brain teasers?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 21, "text": "Do you like building things with LEGO or blocks?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 22, "text": "Do you enjoy planning trips or schedules?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 23, "text": "Are you interested in how plants grow or animals behave?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 24, "text": "Do you like video editing or making digital art?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 25, "text": "Do you enjoy learning about history or ancient civilizations?", "options": ["Yes, a lot", "Sometimes", "Not really"]}
-    ]
-    
-    college_questions = [
-        {"id": 1, "text": "Do you prefer theoretical research or hands-on projects?", "options": ["Theoretical Research", "Both equally", "Hands-on Projects"]},
-        {"id": 2, "text": "Do you enjoy data analysis and statistics?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 3, "text": "Are you interested in entrepreneurship and startups?", "options": ["Very interested", "Somewhat", "Not at all"]},
-        {"id": 4, "text": "Do you like teaching or mentoring juniors?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 5, "text": "Do you enjoy coding or developing software?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 6, "text": "Are you interested in financial markets or investing?", "options": ["Very interested", "Somewhat", "Not at all"]},
-        {"id": 7, "text": "Do you like writing essays, blogs, or research papers?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 8, "text": "Do you enjoy public speaking or presentations?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 9, "text": "Are you interested in psychology or human behavior?", "options": ["Very interested", "Somewhat", "Not at all"]},
-        {"id": 10, "text": "Do you like working with robots or electronics?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 11, "text": "Do you enjoy social media management or digital marketing?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 12, "text": "Are you interested in environmental sustainability?", "options": ["Very interested", "Somewhat", "Not at all"]},
-        {"id": 13, "text": "Do you like designing graphics or user interfaces?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 14, "text": "Do you enjoy scientific lab work or experiments?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 15, "text": "Are you interested in law, politics, or governance?", "options": ["Very interested", "Somewhat", "Not at all"]},
-        {"id": 16, "text": "Do you like event management or coordinating teams?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 17, "text": "Do you enjoy traveling and learning new cultures?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 18, "text": "Are you good at negotiating or persuading people?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 19, "text": "Do you like photography or filmmaking?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 20, "text": "Are you interested in AI and machine learning?", "options": ["Very interested", "Somewhat", "Not at all"]},
-        {"id": 21, "text": "Do you enjoy volunteering or social work?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 22, "text": "Do you like solving complex real-world problems?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 23, "text": "Are you interested in animation or game design?", "options": ["Very interested", "Somewhat", "Not at all"]},
-        {"id": 24, "text": "Do you enjoy writing business plans or case studies?", "options": ["Yes, a lot", "Sometimes", "Not really"]},
-        {"id": 25, "text": "Do you like creating YouTube videos or podcasts?", "options": ["Yes, a lot", "Sometimes", "Not really"]}
-    ]
-    
-    if user_type == 'school':
-        return school_questions
-    else:
-        return college_questions
+# ==================== RIASEC AI CAREER ASSESSMENT ====================
+# Holland's RIASEC model (Realistic, Investigative, Artistic, Social,
+# Enterprising, Conventional) is a standard, published psychometric
+# framework - the six dimension names/definitions below are that public
+# framework, not app-specific hardcoded career data. What IS always
+# AI-generated per student (never hardcoded) is: the resulting
+# personality type label, its description, the matching careers list,
+# match percentages, strengths, learning style, and suitable work
+# environment - see generate_riasec_prompt / generate_ai_riasec_assessment.
 
-# ==================== PERSONALITY PATHWAY ANALYSIS ====================
-def analyze_personality_pathway(responses, user_type):
-    """Analyze personality responses and return pathway recommendation"""
-    # Calculate scores based on responses
-    visual_score = 0
-    auditory_score = 0
-    kinesthetic_score = 0
-    reading_score = 0
-    
-    # Sample mapping - you can customize this based on your questions
+RIASEC_LIKERT_OPTIONS = ["Strongly Dislike", "Dislike", "Neutral", "Like", "Strongly Like"]
+RIASEC_LIKERT_SCORES = {
+    "Strongly Dislike": 0,
+    "Dislike": 1,
+    "Neutral": 2,
+    "Like": 3,
+    "Strongly Like": 4,
+}
+
+RIASEC_DIMENSIONS = {
+    "R": "Realistic",
+    "I": "Investigative",
+    "A": "Artistic",
+    "S": "Social",
+    "E": "Enterprising",
+    "C": "Conventional",
+}
+
+
+def get_riasec_questions(user_type):
+    """
+    Return the fixed RIASEC Likert-scale questionnaire (5 items per
+    dimension x 6 dimensions = 30 items), tagged with their Holland-code
+    category so raw dimension scores can be totalled afterwards.
+
+    This is the assessment INSTRUMENT itself (like a standard psychometric
+    survey) - it is not a career-outcome mapping. Everything derived from
+    the answers (personality type, careers, strengths, etc.) is generated
+    fresh by Gemini in generate_ai_riasec_assessment(), never hardcoded.
+    """
+    school_questions = [
+        {"id": 1, "category": "R", "text": "Building, fixing, or assembling things with your hands"},
+        {"id": 2, "category": "R", "text": "Playing outdoor sports or being physically active"},
+        {"id": 3, "category": "R", "text": "Working with tools, machines, or gadgets"},
+        {"id": 4, "category": "R", "text": "Gardening, woodworking, or hands-on craft projects"},
+        {"id": 5, "category": "R", "text": "Taking apart toys or gadgets to see how they work"},
+        {"id": 6, "category": "I", "text": "Solving math problems or logical puzzles"},
+        {"id": 7, "category": "I", "text": "Doing science experiments and discovering how things work"},
+        {"id": 8, "category": "I", "text": "Reading about space, nature, or new inventions"},
+        {"id": 9, "category": "I", "text": "Asking 'why' and researching answers on your own"},
+        {"id": 10, "category": "I", "text": "Analysing data, patterns, or clues to solve a mystery"},
+        {"id": 11, "category": "A", "text": "Drawing, painting, or designing something creative"},
+        {"id": 12, "category": "A", "text": "Writing stories, poems, or making music"},
+        {"id": 13, "category": "A", "text": "Acting, dancing, or performing on stage"},
+        {"id": 14, "category": "A", "text": "Making videos, digital art, or photography"},
+        {"id": 15, "category": "A", "text": "Coming up with imaginative, out-of-the-box ideas"},
+        {"id": 16, "category": "S", "text": "Helping classmates understand a difficult topic"},
+        {"id": 17, "category": "S", "text": "Volunteering or helping people in your community"},
+        {"id": 18, "category": "S", "text": "Listening to friends and helping them with problems"},
+        {"id": 19, "category": "S", "text": "Working in a team on a group project"},
+        {"id": 20, "category": "S", "text": "Taking care of younger kids, pets, or classmates"},
+        {"id": 21, "category": "E", "text": "Leading a group, club, or class activity"},
+        {"id": 22, "category": "E", "text": "Convincing friends to try your idea or plan"},
+        {"id": 23, "category": "E", "text": "Organising events like a school fest or fundraiser"},
+        {"id": 24, "category": "E", "text": "Starting a small project, stall, or club of your own"},
+        {"id": 25, "category": "E", "text": "Debating or presenting your opinion in front of others"},
+        {"id": 26, "category": "C", "text": "Keeping your notes, files, or schedule neatly organised"},
+        {"id": 27, "category": "C", "text": "Following clear steps and checklists to finish a task"},
+        {"id": 28, "category": "C", "text": "Working with numbers, spreadsheets, or record-keeping"},
+        {"id": 29, "category": "C", "text": "Double-checking details so nothing is missed"},
+        {"id": 30, "category": "C", "text": "Planning your day or week with a clear timetable"},
+    ]
+
+    college_questions = [
+        {"id": 1, "category": "R", "text": "Working hands-on with equipment, hardware, or machinery"},
+        {"id": 2, "category": "R", "text": "Fieldwork, lab-bench work, or physically building prototypes"},
+        {"id": 3, "category": "R", "text": "Troubleshooting mechanical, electrical, or technical systems"},
+        {"id": 4, "category": "R", "text": "Working outdoors or in a workshop/production environment"},
+        {"id": 5, "category": "R", "text": "Operating or repairing vehicles, devices, or industrial tools"},
+        {"id": 6, "category": "I", "text": "Analysing data, statistics, or research findings"},
+        {"id": 7, "category": "I", "text": "Designing or conducting scientific/technical experiments"},
+        {"id": 8, "category": "I", "text": "Studying complex theoretical or abstract concepts"},
+        {"id": 9, "category": "I", "text": "Working with algorithms, models, or research methodology"},
+        {"id": 10, "category": "I", "text": "Investigating unsolved problems with no obvious answer"},
+        {"id": 11, "category": "A", "text": "Designing visuals, UI/UX, branding, or creative campaigns"},
+        {"id": 12, "category": "A", "text": "Writing original content, scripts, or creative research"},
+        {"id": 13, "category": "A", "text": "Composing music, filmmaking, or other artistic production"},
+        {"id": 14, "category": "A", "text": "Innovating unconventional solutions to open-ended problems"},
+        {"id": 15, "category": "A", "text": "Working in fields that reward original self-expression"},
+        {"id": 16, "category": "S", "text": "Mentoring, teaching, or training other students/colleagues"},
+        {"id": 17, "category": "S", "text": "Counselling, healthcare, or direct people-support work"},
+        {"id": 18, "category": "S", "text": "Facilitating discussions or resolving conflicts in a group"},
+        {"id": 19, "category": "S", "text": "Community/social-impact work or NGO-style projects"},
+        {"id": 20, "category": "S", "text": "Building relationships and understanding people's needs"},
+        {"id": 21, "category": "E", "text": "Pitching ideas, products, or plans to stakeholders"},
+        {"id": 22, "category": "E", "text": "Leading a team toward a business or project goal"},
+        {"id": 23, "category": "E", "text": "Negotiating deals, sales, or partnerships"},
+        {"id": 24, "category": "E", "text": "Starting or running your own venture/startup"},
+        {"id": 25, "category": "E", "text": "Making strategic decisions under time pressure"},
+        {"id": 26, "category": "C", "text": "Managing budgets, records, or structured data systems"},
+        {"id": 27, "category": "C", "text": "Following detailed procedures, compliance, or documentation"},
+        {"id": 28, "category": "C", "text": "Auditing, quality-checking, or verifying accuracy in detail"},
+        {"id": 29, "category": "C", "text": "Organising schedules, logistics, or administrative workflows"},
+        {"id": 30, "category": "C", "text": "Working systematically within clear rules and structure"},
+    ]
+
+    questions = school_questions if user_type == 'school' else college_questions
+    return [{**q, "options": RIASEC_LIKERT_OPTIONS} for q in questions]
+
+
+def calculate_riasec_scores(responses, questions):
+    """
+    Pure arithmetic scoring: sums the Likert value of each answered
+    question into its RIASEC dimension, then normalises to a 0-100
+    percentage per dimension based on the maximum possible score for
+    that dimension. Returns the ranked dimensions and a 2-3 letter
+    Holland code from the top dimensions. No career/description text is
+    produced here - that all comes from Gemini afterwards.
+    """
+    raw = {k: 0 for k in RIASEC_DIMENSIONS}
+    counts = {k: 0 for k in RIASEC_DIMENSIONS}
+
+    questions_by_id = {q['id']: q for q in questions}
     for q_id, answer in responses.items():
-        if answer in ["Yes, a lot", "Very interested", "Always"]:
-            visual_score += 3
-            kinesthetic_score += 2
-        elif answer in ["Sometimes", "Somewhat"]:
-            visual_score += 2
-            auditory_score += 2
-            reading_score += 2
-        else:
-            reading_score += 3
-            auditory_score += 2
-    
-    scores = {
-        "Visual Learner": visual_score,
-        "Auditory Learner": auditory_score,
-        "Kinesthetic Learner": kinesthetic_score,
-        "Reading/Writing Learner": reading_score
+        q = questions_by_id.get(q_id)
+        if not q or answer not in RIASEC_LIKERT_SCORES:
+            continue
+        cat = q['category']
+        raw[cat] += RIASEC_LIKERT_SCORES[answer]
+        counts[cat] += 1
+
+    percentages = {}
+    for cat, total in raw.items():
+        max_possible = counts[cat] * 4  # 4 = top Likert score ("Strongly Like")
+        percentages[cat] = round((total / max_possible) * 100) if max_possible > 0 else 0
+
+    ranked = sorted(percentages.items(), key=lambda x: x[1], reverse=True)
+    top_code = "".join(cat for cat, _ in ranked[:3] if percentages[cat] > 0)
+
+    return {
+        "raw": raw,
+        "percentages": percentages,
+        "ranked": ranked,  # list of (category_letter, percentage), highest first
+        "ranked_named": [(RIASEC_DIMENSIONS[cat], pct) for cat, pct in ranked],
+        "top_code": top_code or (ranked[0][0] if ranked else "R"),
     }
-    
-    dominant = max(scores, key=scores.get)
-    percentage = int((scores[dominant] / sum(scores.values())) * 100)
-    
-    pathways = {
-        "Visual Learner": {
-            "icon": "👁️🎨",
-            "title": "Visual Learner",
-            "description": "You learn best through visual aids like diagrams, charts, videos, and written instructions. You remember information better when it's presented visually.",
-            "strengths": ["Strong visual memory", "Good at spatial relationships", "Excellent at reading maps and diagrams", "Detail-oriented"],
-        },
-        "Auditory Learner": {
-            "icon": "🎧🗣️",
-            "title": "Auditory Learner",
-            "description": "You learn best through listening - lectures, discussions, audio books, and verbal explanations. You remember information through sound and rhythm.",
-            "strengths": ["Excellent listening skills", "Good at verbal instructions", "Strong memory for spoken information", "Great at public speaking"],
-        },
-        "Kinesthetic Learner": {
-            "icon": "✋🏃",
-            "title": "Kinesthetic Learner",
-            "description": "You learn best through hands-on activities, movement, and physical experiences. You remember information by doing and practicing.",
-            "strengths": ["Excellent hand-eye coordination", "Good at physical activities", "Strong problem-solving through action", "Practical and hands-on"],
-        },
-        "Reading/Writing Learner": {
-            "icon": "📚✍️",
-            "title": "Reading/Writing Learner",
-            "description": "You learn best through reading and writing - books, articles, notes, and essays. You excel at expressing ideas through text.",
-            "strengths": ["Strong reading comprehension", "Excellent writing skills", "Good at research", "Detail-oriented in documentation"],
+
+
+def generate_riasec_prompt(student_details, riasec_scores, user_type):
+    """
+    Build the prompt for the AI-powered RIASEC Career Assessment. Gemini
+    must generate EVERYTHING about the result (personality type,
+    description, top matching careers, match percentages, strengths,
+    learning style, suitable work environment) fresh for this student -
+    no hardcoded type-to-career mapping exists anywhere in this app.
+    """
+    name = student_details.get('name', 'The student')
+    age = student_details.get('age', 'Not specified')
+    grade = student_details.get('grade', 'Not specified')
+    education_level = "School Student" if user_type == 'school' else "College Student"
+
+    ranked_lines = "\n".join(
+        f"- {RIASEC_DIMENSIONS[cat]} ({cat}): {pct}%"
+        for cat, pct in riasec_scores['ranked']
+    )
+
+    if user_type == 'school':
+        depth_instruction = (
+            "This is a SCHOOL STUDENT: use SIMPLE, jargon-free language, short "
+            "sentences, and everyday examples a teenager would understand. "
+            "Explain any technical term in plain words. Frame matching careers "
+            "and work environments in an encouraging, exploratory way rather "
+            "than assuming specialised knowledge."
+        )
+    else:
+        depth_instruction = (
+            "This is a COLLEGE STUDENT: use PROFESSIONAL, industry-appropriate "
+            "language. Reference specific job roles, specialisations, tools, "
+            "or industry context where relevant, and give more advanced, "
+            "nuanced career guidance suited to someone entering the workforce."
+        )
+
+    prompt = f"""You are an expert occupational psychologist AI specialising in the RIASEC
+(Holland Code) career interest model - Realistic, Investigative, Artistic,
+Social, Enterprising, Conventional.
+
+STUDENT INFORMATION
+- Name: {name}
+- Age: {age}
+- Grade/Year: {grade}
+- Education Level: {education_level}
+
+RIASEC ASSESSMENT RESULTS (0-100 scale per dimension, from the student's own
+Likert-scale answers to a 30-item RIASEC questionnaire)
+{ranked_lines}
+
+TASK
+Based ONLY on the scores above, generate a completely fresh, personalized
+RIASEC career assessment result for this student. Do NOT use any
+pre-existing/manual RIASEC-to-career database - reason about the scores
+yourself and generate everything dynamically. {depth_instruction}
+
+Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly
+this shape:
+
+{{
+  "riasec_code": "2-3 letter Holland code built from the student's strongest dimensions, e.g. IAS",
+  "personality_type": "a short, descriptive personality-type title reflecting the dominant dimensions, e.g. 'The Analytical Creator'",
+  "description": "2-4 sentences describing what this RIASEC profile means for this specific student, personalized using their actual scores",
+  "top_matching_careers": [
+    {{"career_name": "string", "match_percentage": 0, "why_it_fits": "one or two sentence explanation tied to this student's scores"}}
+  ],
+  "strengths": ["string", "string", "string"],
+  "learning_style": "2-3 sentences on how this student likely learns best, derived from their RIASEC profile",
+  "suitable_work_environment": "2-3 sentences describing the kind of work environment/culture that would suit this student"
+}}
+
+Requirements:
+- top_matching_careers must contain 5 to 7 careers, ordered from highest to lowest match_percentage (integers 0-100), each genuinely justified by the scores above - not generic/copy-pasted across students.
+- strengths must contain 4 to 6 concise bullet-point strings.
+- Every string value must be a single line with no literal line breaks (use spaces instead).
+- Output JSON only, nothing else."""
+
+    return prompt
+
+
+def _validate_riasec_schema(data):
+    """
+    Schema validator for the RIASEC assessment response, passed into
+    generate_validated_json so a structurally-valid-but-incomplete
+    response is treated the same as a JSON parse failure and triggers a
+    single automatic retry instead of being silently accepted.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("RIASEC response is not a JSON object.")
+
+    riasec_code = str(data.get("riasec_code", "")).strip()
+    personality_type = str(data.get("personality_type", "")).strip()
+    description = str(data.get("description", "")).strip()
+    learning_style = str(data.get("learning_style", "")).strip()
+    suitable_work_environment = str(data.get("suitable_work_environment", "")).strip()
+    careers = data.get("top_matching_careers", [])
+    strengths = data.get("strengths", [])
+
+    if not personality_type or not description:
+        raise ValueError("RIASEC response missing personality_type/description.")
+    if not isinstance(careers, list) or len(careers) == 0:
+        raise ValueError("RIASEC response missing top_matching_careers.")
+    if not isinstance(strengths, list) or len(strengths) == 0:
+        raise ValueError("RIASEC response missing strengths.")
+
+    cleaned_careers = []
+    for c in careers:
+        if not isinstance(c, dict):
+            continue
+        career_name = str(c.get("career_name", "")).strip()
+        if not career_name:
+            continue
+        try:
+            match_percentage = int(round(float(c.get("match_percentage", 0))))
+        except (TypeError, ValueError):
+            match_percentage = 0
+        match_percentage = max(0, min(100, match_percentage))
+        cleaned_careers.append({
+            "career_name": career_name,
+            "match_percentage": match_percentage,
+            "why_it_fits": str(c.get("why_it_fits", "")).strip(),
+        })
+
+    if not cleaned_careers:
+        raise ValueError("RIASEC response had no usable career entries.")
+
+    cleaned_careers.sort(key=lambda c: c["match_percentage"], reverse=True)
+
+    return {
+        "riasec_code": riasec_code,
+        "personality_type": personality_type,
+        "description": description,
+        "top_matching_careers": cleaned_careers,
+        "strengths": [str(s).strip() for s in strengths if str(s).strip()],
+        "learning_style": learning_style,
+        "suitable_work_environment": suitable_work_environment,
+    }
+
+
+def generate_ai_riasec_assessment(student_details, riasec_scores, user_type):
+    """
+    Call Gemini to produce the full RIASEC Career Assessment result and
+    store the parsed result in st.session_state.riasec_result.
+
+    Follows the exact same reliability pattern as generate_ai_analysis():
+    generate_validated_json retries once on parse/schema failure, never
+    calls json.loads() on unchecked text, and technical error detail is
+    kept separate (riasec_result_error) from the friendly UI message.
+    """
+    prompt = generate_riasec_prompt(student_details, riasec_scores, user_type)
+
+    try:
+        model = get_gemini_client()
+    except GeminiConfigError as e:
+        st.session_state.riasec_result = None
+        st.session_state.riasec_result_error = str(e)
+        return {"status": "error", "message": "The RIASEC AI assessment is temporarily unavailable. Please try again later."}
+
+    try:
+        data, response_text = generate_validated_json(
+            model, prompt, max_output_tokens=2048,
+            label="generate_ai_riasec_assessment",
+            validator=_validate_riasec_schema,
+        )
+
+        if data is None:
+            st.session_state.riasec_result = None
+            st.session_state.riasec_result_error = (
+                "Gemini's response was empty, invalid JSON, or missing required "
+                "RIASEC fields, even after one automatic retry."
+            )
+            return {
+                "status": "error",
+                "message": "Your RIASEC assessment could not be generated right now. Please try again later.",
+            }
+
+        st.session_state.riasec_result = data
+        st.session_state.riasec_result_error = None
+        return {"status": "success", "message": "RIASEC assessment generated."}
+    except Exception as e:
+        st.session_state.riasec_result = None
+        st.session_state.riasec_result_error = str(e)
+        return {
+            "status": "error",
+            "message": "Something went wrong while generating your RIASEC assessment. Please try again later.",
         }
-    }
-    
-    pathway = pathways.get(dominant, pathways["Visual Learner"])
-    pathway["match_percentage"] = percentage
-    pathway["personality_type"] = dominant
-    
-    return pathway
+
 
 def calculate_results(responses, questions_list, categories):
     """Calculate weighted scores for each category"""
@@ -1685,6 +1933,329 @@ def calculate_results(responses, questions_list, categories):
     
     return categories, recommended
 
+# ==================== PDF REPORT CHART GENERATION ====================
+# MODIFICATION (PDF charts): shared chart-building helpers used by both
+# generate_pdf_report() and generate_role_detail_pdf() to render the
+# report's data visualisations (career-match bar chart, skills pie chart,
+# career-readiness progress bars, skill-gap progress bars, and the
+# learning-roadmap timeline) as brand-colored PNGs, then embed them into
+# the PDF inside the same rounded/bordered "card" style used for every
+# other section. Nothing here changes any AI recommendation/report data -
+# these functions only ever plot numbers that are already being rendered
+# elsewhere in the PDF as text.
+
+# Brand palette (kept in sync with the Dark Blue / Cyan / White tokens
+# used throughout generate_pdf_report() and generate_role_detail_pdf()).
+_CHART_DARK_BLUE = "#0D1B3E"
+_CHART_CYAN = "#22D3EE"
+_CHART_CYAN_SOFT = "#7DE6F5"
+_CHART_TRACK = "#E7F6FA"      # light track/background for progress bars
+_CHART_GRID = "#E3EEF2"
+_CHART_LABEL = "#445C82"      # muted label text, matches LABEL_MUTED
+_CHART_TEXT = "#0D1B3E"
+
+# Difficulty / importance color buckets - dark blue for the most
+# demanding/urgent items, cyan for the lightest, so the chart reads
+# consistently with the rest of the brand-colored report.
+_CHART_LEVEL_COLORS = {
+    "high": _CHART_DARK_BLUE, "hard": _CHART_DARK_BLUE, "difficult": _CHART_DARK_BLUE,
+    "medium": "#1C7FA8", "moderate": "#1C7FA8", "intermediate": "#1C7FA8",
+    "low": _CHART_CYAN, "easy": _CHART_CYAN, "beginner": _CHART_CYAN,
+}
+
+
+def _chart_level_color(label):
+    return _CHART_LEVEL_COLORS.get(str(label or "").strip().lower(), _CHART_CYAN)
+
+
+def _new_chart_path():
+    import tempfile
+    f = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+    f.close()
+    return f.name
+
+
+def _style_chart_axes(ax, fig):
+    """Common cosmetic cleanup shared by every chart: white background, no
+    top/right/left spines, muted gridlines, brand-colored ticks."""
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
+    for spine in ("top", "right", "left"):
+        ax.spines[spine].set_visible(False)
+    ax.spines["bottom"].set_color(_CHART_GRID)
+    ax.tick_params(colors=_CHART_LABEL, labelsize=9)
+
+
+def chart_top_career_matches(items, fig_w_in):
+    """Horizontal bar chart of the top career/stream match percentages.
+    items: list of (label, match_percentage) tuples, any order - this
+    function sorts descending and keeps at most the top 7 so the chart
+    stays readable. Returns (png_path, fig_height_in) or None if
+    matplotlib isn't available or there's no usable data.
+    """
+    if not MATPLOTLIB_AVAILABLE or not items:
+        return None
+    items = [(str(label), float(pct)) for label, pct in items if str(label).strip()]
+    if not items:
+        return None
+    items.sort(key=lambda x: x[1], reverse=True)
+    items = items[:7]
+    items = items[::-1]  # matplotlib barh draws bottom-up; reverse so #1 is on top
+
+    labels = [lbl if len(lbl) <= 34 else lbl[:31] + "..." for lbl, _ in items]
+    values = [pct for _, pct in items]
+    colors = [_CHART_DARK_BLUE if i == len(items) - 1 else _CHART_CYAN for i in range(len(items))]
+
+    fig_h_in = max(1.6, 0.5 * len(items) + 1.0)
+    fig, ax = plt.subplots(figsize=(fig_w_in, fig_h_in))
+    _style_chart_axes(ax, fig)
+
+    bars = ax.barh(labels, values, color=colors, height=0.55, zorder=3)
+    ax.set_xlim(0, 108)
+    ax.set_xticks([0, 25, 50, 75, 100])
+    ax.xaxis.grid(True, color=_CHART_GRID, linewidth=0.8, zorder=0)
+    ax.set_axisbelow(True)
+    for bar, val in zip(bars, values):
+        ax.text(val + 1.5, bar.get_y() + bar.get_height() / 2, f"{val:.0f}%",
+                 va="center", ha="left", fontsize=9, color=_CHART_TEXT, fontweight="bold")
+
+    fig.tight_layout(pad=0.6)
+    path = _new_chart_path()
+    fig.savefig(path, dpi=170)
+    plt.close(fig)
+    return path, fig_h_in
+
+
+def chart_skills_pie(tech_count, soft_count, fig_w_in):
+    """Pie chart comparing the number of Technical Skills vs Soft Skills
+    listed for the recommended career. Returns (png_path, fig_height_in)
+    or None if matplotlib isn't available or both counts are zero."""
+    if not MATPLOTLIB_AVAILABLE or (tech_count <= 0 and soft_count <= 0):
+        return None
+
+    fig_h_in = round(fig_w_in * 0.5, 2)
+    fig, ax = plt.subplots(figsize=(fig_w_in, fig_h_in))
+    fig.patch.set_facecolor("white")
+
+    values = [tech_count, soft_count]
+    labels = [f"Technical Skills ({tech_count})", f"Soft Skills ({soft_count})"]
+    colors = [_CHART_DARK_BLUE, _CHART_CYAN]
+
+    wedges, _texts, autotexts = ax.pie(
+        values,
+        colors=colors,
+        autopct=lambda p: f"{p:.0f}%" if p > 0 else "",
+        startangle=90,
+        pctdistance=0.75,
+        wedgeprops=dict(width=0.42, edgecolor="white", linewidth=2),
+        textprops=dict(color="white", fontsize=10, fontweight="bold"),
+    )
+    ax.legend(wedges, labels, loc="center left", bbox_to_anchor=(1.0, 0.5),
+              frameon=False, fontsize=9.5, labelcolor=_CHART_TEXT)
+    ax.set_aspect("equal")
+
+    fig.tight_layout(pad=0.6)
+    path = _new_chart_path()
+    fig.savefig(path, dpi=170)
+    plt.close(fig)
+    return path, fig_h_in
+
+
+def chart_career_readiness(overall_score, strengths, fig_w_in):
+    """Progress-bar style chart for AI Skill Gap Analysis: one headline bar
+    for the overall readiness score, then one bar per current-strength
+    skill showing its proficiency score. strengths: list of
+    (skill_name, proficiency_score). Returns (png_path, fig_height_in) or
+    None if matplotlib isn't available / there's nothing to plot."""
+    if not MATPLOTLIB_AVAILABLE:
+        return None
+    strengths = [(str(n), float(s)) for n, s in (strengths or []) if str(n).strip()]
+    try:
+        overall_score = float(overall_score)
+    except (TypeError, ValueError):
+        overall_score = None
+    if overall_score is None and not strengths:
+        return None
+
+    rows = []
+    if overall_score is not None:
+        rows.append(("Overall Career Readiness", overall_score, True))
+    for name, score in strengths[:8]:
+        label = name if len(name) <= 30 else name[:27] + "..."
+        rows.append((label, max(0.0, min(100.0, score)), False))
+    rows = rows[::-1]
+
+    fig_h_in = max(1.6, 0.52 * len(rows) + 1.0)
+    fig, ax = plt.subplots(figsize=(fig_w_in, fig_h_in))
+    _style_chart_axes(ax, fig)
+
+    labels = [r[0] for r in rows]
+    values = [r[1] for r in rows]
+    y_pos = range(len(rows))
+
+    # Light "track" bars (full-length background) with the actual score
+    # drawn on top, giving each row a classic progress-bar look.
+    ax.barh(y_pos, [100] * len(rows), color=_CHART_TRACK, height=0.5, zorder=2)
+    bar_colors = [_CHART_DARK_BLUE if r[2] else _CHART_CYAN for r in rows]
+    bars = ax.barh(y_pos, values, color=bar_colors, height=0.5, zorder=3)
+
+    ax.set_yticks(list(y_pos))
+    ax.set_yticklabels(labels)
+    ax.set_xlim(0, 108)
+    ax.set_xticks([0, 25, 50, 75, 100])
+    ax.xaxis.grid(True, color=_CHART_GRID, linewidth=0.8, zorder=0)
+    ax.set_axisbelow(True)
+
+    for bar, val, is_overall in zip(bars, values, [r[2] for r in rows]):
+        ax.text(val + 1.5, bar.get_y() + bar.get_height() / 2, f"{val:.0f}%",
+                 va="center", ha="left", fontsize=9,
+                 color=_CHART_TEXT, fontweight="bold" if is_overall else "normal")
+
+    fig.tight_layout(pad=0.6)
+    path = _new_chart_path()
+    fig.savefig(path, dpi=170)
+    plt.close(fig)
+    return path, fig_h_in
+
+
+def chart_skill_gap(items, fig_w_in):
+    """Horizontal bar chart visualising the AI Skill Gap Analysis' learning
+    difficulty per missing skill. items: list of
+    (skill_name, difficulty_score, difficulty_label). Bars are colored by
+    difficulty level (dark blue = hardest, cyan = easiest) so the chart
+    doubles as a quick priority-reading aid. Returns (png_path,
+    fig_height_in) or None."""
+    if not MATPLOTLIB_AVAILABLE or not items:
+        return None
+    cleaned = []
+    for name, score, level in items:
+        name = str(name).strip()
+        if not name:
+            continue
+        try:
+            score = max(0.0, min(100.0, float(score)))
+        except (TypeError, ValueError):
+            continue
+        cleaned.append((name, score, level))
+    if not cleaned:
+        return None
+    cleaned = cleaned[:10][::-1]
+
+    labels = [n if len(n) <= 30 else n[:27] + "..." for n, _, _ in cleaned]
+    values = [s for _, s, _ in cleaned]
+    colors = [_chart_level_color(lvl) for _, _, lvl in cleaned]
+
+    fig_h_in = max(1.6, 0.5 * len(cleaned) + 1.0)
+    fig, ax = plt.subplots(figsize=(fig_w_in, fig_h_in))
+    _style_chart_axes(ax, fig)
+
+    y_pos = range(len(cleaned))
+    ax.barh(y_pos, [100] * len(cleaned), color=_CHART_TRACK, height=0.55, zorder=2)
+    bars = ax.barh(y_pos, values, color=colors, height=0.55, zorder=3)
+    ax.set_yticks(list(y_pos))
+    ax.set_yticklabels(labels)
+    ax.set_xlim(0, 108)
+    ax.set_xticks([0, 25, 50, 75, 100])
+    ax.set_xlabel("Learning Difficulty (%)", color=_CHART_LABEL, fontsize=9)
+    ax.xaxis.grid(True, color=_CHART_GRID, linewidth=0.8, zorder=0)
+    ax.set_axisbelow(True)
+
+    for bar, val in zip(bars, values):
+        ax.text(val + 1.5, bar.get_y() + bar.get_height() / 2, f"{val:.0f}%",
+                 va="center", ha="left", fontsize=9, color=_CHART_TEXT, fontweight="bold")
+
+    # Small legend explaining the color coding.
+    from matplotlib.patches import Patch
+    legend_handles = [
+        Patch(facecolor=_CHART_DARK_BLUE, label="High / Hard"),
+        Patch(facecolor="#1C7FA8", label="Medium"),
+        Patch(facecolor=_CHART_CYAN, label="Low / Easy"),
+    ]
+    ax.legend(handles=legend_handles, loc="lower right", frameon=False, fontsize=8, labelcolor=_CHART_TEXT)
+
+    fig.tight_layout(pad=0.6)
+    path = _new_chart_path()
+    fig.savefig(path, dpi=170)
+    plt.close(fig)
+    return path, fig_h_in
+
+
+def chart_roadmap_timeline(months, fig_w_in):
+    """Horizontal timeline visualising the 12-Month Learning Roadmap:
+    one marker per month, connected by a line, labeled with the month's
+    title underneath (rotated to avoid overlap). months: list of
+    (month_number, month_title). Returns (png_path, fig_height_in) or
+    None if matplotlib isn't available or there are no months."""
+    if not MATPLOTLIB_AVAILABLE or not months:
+        return None
+    months = [(n, str(t)) for n, t in months if str(t).strip() or n]
+    if not months:
+        return None
+
+    n = len(months)
+    xs = list(range(n))
+    fig_h_in = 2.5
+    fig, ax = plt.subplots(figsize=(fig_w_in, fig_h_in))
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.set_yticks([])
+
+    ax.plot(xs, [0] * n, color=_CHART_CYAN_SOFT, linewidth=3, zorder=1, solid_capstyle="round")
+    colors = [_CHART_DARK_BLUE if i == 0 or i == n - 1 else _CHART_CYAN for i in range(n)]
+    ax.scatter(xs, [0] * n, s=140, color=colors, zorder=3, edgecolors="white", linewidths=1.5)
+
+    for i, (num, title) in enumerate(months):
+        label = title if len(title) <= 16 else title[:14] + "..."
+        ax.text(i, 0.16, f"M{num}", ha="center", va="bottom", fontsize=8.5,
+                 fontweight="bold", color=_CHART_TEXT)
+        ax.text(i, -0.16, label, ha="right", va="top", fontsize=7.5,
+                 color=_CHART_LABEL, rotation=40, rotation_mode="anchor")
+
+    ax.set_xlim(-0.6, n - 0.4)
+    ax.set_ylim(-0.85, 0.4)
+
+    fig.tight_layout(pad=0.6)
+    path = _new_chart_path()
+    fig.savefig(path, dpi=170)
+    plt.close(fig)
+    return path, fig_h_in
+
+
+def draw_chart_card(pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
+                     PDF_WHITE, CARD_BORDER, title, chart_result, fig_w_in):
+    """Shared card renderer for every chart: a title bar (reusing the same
+    draw_title_bar closure as every other section) followed by a rounded,
+    bordered white card containing the chart image, sized so it can never
+    overlap surrounding text or the footer (uses the same ensure_space
+    page-break logic as every text/bullet/kv card).
+
+    chart_result is the (img_path, fig_h_in) tuple returned by the
+    chart_* functions above, generated with figure width fig_w_in - the
+    same fig_w_in must be passed here so the image is placed at its
+    native aspect ratio (no stretching/squashing).
+    """
+    if not chart_result:
+        return
+    img_path, fig_h_in = chart_result
+    pad = 6
+    inner_w_mm = content_width() - 2 * pad
+    img_h_mm = inner_w_mm * (fig_h_in / fig_w_in)
+    card_h = img_h_mm + 2 * pad
+    ensure_space(9 + 4 + card_h + 8)
+    draw_title_bar(title)
+    x = CONTENT_MARGIN
+    y = pdf.get_y()
+    w = content_width()
+    pdf.set_fill_color(*PDF_WHITE)
+    pdf.set_draw_color(*CARD_BORDER)
+    pdf.set_line_width(0.3)
+    pdf.rect(x, y, w, card_h, style='DF', round_corners=True, corner_radius=2.2)
+    pdf.image(img_path, x=x + pad, y=y + pad, w=inner_w_mm, h=img_h_mm)
+    pdf.set_xy(x, y + card_h + 8)
+
+
 def generate_pdf_report():
     """Generate PDF report for download with proper Unicode support"""
     
@@ -1702,22 +2273,226 @@ def generate_pdf_report():
         "message": stream.get('explanation', 'AI recommendations have not been generated yet.'),
     }
 
-    # Custom PDF class with Unicode support
+    # MODIFICATION (PDF charts): source data for the "Top Career Match
+    # Percentages" bar chart - prefer the RIASEC assessment's per-career
+    # matches (richer, up to 7 careers) since that's the most granular
+    # match data available; fall back to the AI's top-3 recommended
+    # streams if RIASEC hasn't been completed this session. Either way,
+    # this only reuses match_percentage values already generated and
+    # shown elsewhere in the app - no scoring/recommendation logic here.
+    riasec_result_for_chart = st.session_state.get('riasec_result') or {}
+    top_matches_source = riasec_result_for_chart.get('top_matching_careers') or []
+    if top_matches_source:
+        top_match_items = [
+            (c.get('career_name', ''), c.get('match_percentage', 0))
+            for c in top_matches_source if c.get('career_name')
+        ]
+    else:
+        top_streams_source = st.session_state.get('ai_top_streams') or []
+        top_match_items = [
+            (s.get('stream_name', ''), s.get('match_percentage', 0))
+            for s in top_streams_source if s.get('stream_name')
+        ]
+
+    # ------------------------------------------------------------------
+    # Shared design tokens for every content page (page 2 onward).
+    # Dark Blue / Cyan / White theme, consistent with the cover page.
+    # ------------------------------------------------------------------
+    DARK_BLUE = (13, 27, 62)
+    CYAN = (34, 211, 238)
+    CYAN_SOFT = (125, 230, 245)
+    PDF_WHITE = (255, 255, 255)
+    BODY_TEXT = (30, 41, 63)
+    LABEL_MUTED = (68, 92, 130)
+    CARD_BORDER = (204, 234, 241)
+    CONTENT_MARGIN = 14
+
+    # Custom PDF class with Unicode support, a branded header bar, and a
+    # branded footer (CoActions + page numbers) on every content page.
     class PDF(FPDF):
         def header(self):
-            # Add logo or header if needed
-            pass
-        
+            # Cover page (page 1) has its own full-page design; skip here.
+            if self.page_no() == 1:
+                return
+            self.set_fill_color(*DARK_BLUE)
+            self.rect(0, 0, self.w, 10, style='F')
+            self.set_fill_color(*CYAN)
+            self.rect(0, 10, self.w, 1.1, style='F')
+
+            self.set_xy(CONTENT_MARGIN, 1.6)
+            self.set_font('helvetica', 'B', 10.5)
+            self.set_text_color(*PDF_WHITE)
+            self.cell(90, 6.5, 'CoActions', align='L')
+
+            self.set_xy(0, 2.2)
+            self.set_font('helvetica', '', 8)
+            self.set_text_color(180, 230, 240)
+            self.cell(self.w - CONTENT_MARGIN, 6, 'AI Career Guidance & Career Counselling System', align='R')
+
+            self.set_y(20)
+
         def footer(self):
-            self.set_y(-15)
-            self.set_font('helvetica', 'I', 8)
-            self.set_text_color(128, 128, 128)
-            self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
-    
+            # Cover page (page 1) has its own footer tagline drawn manually,
+            # so skip the generic footer there.
+            if self.page_no() == 1:
+                return
+            self.set_draw_color(*CYAN)
+            self.set_line_width(0.4)
+            self.line(CONTENT_MARGIN, self.h - 18, self.w - CONTENT_MARGIN, self.h - 18)
+
+            self.set_xy(CONTENT_MARGIN, self.h - 16)
+            self.set_font('helvetica', 'B', 8)
+            self.set_text_color(*DARK_BLUE)
+            self.cell(100, 4.6, 'CoActions', align='L')
+
+            self.set_xy(CONTENT_MARGIN, self.h - 11.4)
+            self.set_font('helvetica', 'I', 7)
+            self.set_text_color(*LABEL_MUTED)
+            self.cell(100, 4.4, 'AI Career Guidance & Career Counselling System', align='L')
+
+            self.set_xy(0, self.h - 13.6)
+            self.set_font('helvetica', '', 8)
+            self.set_text_color(*LABEL_MUTED)
+            self.cell(self.w - CONTENT_MARGIN, 4.6, f'Page {self.page_no()} of {{nb}}', align='R')
+
+    # ------------------------------------------------------------------
+    # Cover page design: Dark Blue / Cyan / White corporate theme.
+    # Centered logo, brand + system name, report title, and a student
+    # info card (name, type, stream, generated date & time).
+    # ------------------------------------------------------------------
+    def draw_cover_page(pdf, student_name, student_type_label, career_stream_name):
+        DARK_BLUE = (13, 27, 62)
+        CYAN = (34, 211, 238)
+        CYAN_SOFT = (125, 230, 245)
+        WHITE = (255, 255, 255)
+        NAVY_TEXT = (13, 27, 62)
+        LABEL_GRAY = (90, 100, 130)
+        DIVIDER_GRAY = (225, 228, 235)
+
+        page_w = pdf.w
+        page_h = pdf.h
+
+        # Cover page must not be affected by the auto page-break logic
+        # used elsewhere in the report.
+        pdf.set_auto_page_break(False)
+        pdf.add_page()
+
+        # Full-page dark blue background
+        pdf.set_fill_color(*DARK_BLUE)
+        pdf.rect(0, 0, page_w, page_h, style='F')
+
+        # Top and bottom cyan accent bars
+        pdf.set_fill_color(*CYAN)
+        pdf.rect(0, 0, page_w, 6, style='F')
+        pdf.rect(0, page_h - 6, page_w, 6, style='F')
+
+        # Inset cyan frame
+        pdf.set_draw_color(*CYAN)
+        pdf.set_line_width(0.6)
+        margin = 10
+        pdf.rect(margin, margin + 6, page_w - 2 * margin, page_h - 2 * margin - 12, style='D')
+
+        # Logo, centered, on a white circular plate for contrast
+        logo_size = 34
+        logo_x = (page_w - logo_size) / 2
+        logo_y = 32
+        logo_path = "logo.png"
+
+        if os.path.exists(logo_path):
+            plate_r = logo_size / 2 + 6
+            plate_cx = page_w / 2
+            plate_cy = logo_y + logo_size / 2
+            pdf.set_fill_color(*WHITE)
+            pdf.ellipse(plate_cx - plate_r, plate_cy - plate_r, plate_r * 2, plate_r * 2, style='F')
+            try:
+                pdf.image(logo_path, x=logo_x, y=logo_y, w=logo_size, h=logo_size)
+            except Exception:
+                pass
+            text_start_y = logo_y + logo_size + 16
+        else:
+            text_start_y = 50
+
+        # Brand name
+        pdf.set_font('helvetica', 'B', 28)
+        pdf.set_text_color(*WHITE)
+        pdf.set_y(text_start_y)
+        pdf.cell(0, 12, "CoActions", align='C', ln=1)
+
+        # System subtitle
+        pdf.set_font('helvetica', '', 12.5)
+        pdf.set_text_color(*CYAN_SOFT)
+        pdf.ln(1)
+        pdf.cell(0, 7, "AI Career Guidance & Career Counselling System", align='C', ln=1)
+
+        # Divider
+        pdf.ln(6)
+        line_w = 46
+        line_x = (page_w - line_w) / 2
+        pdf.set_draw_color(*CYAN)
+        pdf.set_line_width(0.5)
+        pdf.line(line_x, pdf.get_y(), line_x + line_w, pdf.get_y())
+
+        # Report title
+        pdf.ln(8)
+        pdf.set_font('helvetica', 'B', 18)
+        pdf.set_text_color(*WHITE)
+        pdf.cell(0, 10, "Personalized Career Report", align='C', ln=1)
+
+        # Student info card
+        card_w = page_w - 2 * margin - 24
+        card_x = (page_w - card_w) / 2
+        card_y = 150
+        card_h = 70
+
+        pdf.set_fill_color(*WHITE)
+        pdf.rect(card_x, card_y, card_w, card_h, style='F', round_corners=True, corner_radius=4)
+
+        # Cyan accent strip on the card's left edge
+        pdf.set_fill_color(*CYAN)
+        pdf.rect(card_x, card_y, 3, card_h, style='F')
+
+        rows = [
+            ("STUDENT NAME", student_name or "Not Provided"),
+            ("STUDENT TYPE", student_type_label or "Not Provided"),
+            ("SELECTED CAREER STREAM", career_stream_name or "Not Selected"),
+            ("REPORT GENERATED", datetime.now().strftime('%d %b %Y, %I:%M %p')),
+        ]
+
+        row_h = card_h / len(rows)
+        label_x = card_x + 12
+        value_x = card_x + 75
+
+        for i, (label, value) in enumerate(rows):
+            row_y = card_y + i * row_h + row_h / 2 - 3.5
+
+            pdf.set_xy(label_x, row_y)
+            pdf.set_font('helvetica', 'B', 9)
+            pdf.set_text_color(*LABEL_GRAY)
+            pdf.cell(60, 6, clean_text(label), align='L')
+
+            pdf.set_xy(value_x, row_y)
+            pdf.set_font('helvetica', 'B', 11.5)
+            pdf.set_text_color(*NAVY_TEXT)
+            pdf.cell(card_w - (value_x - card_x) - 10, 6, clean_text(str(value)), align='L')
+
+            if i < len(rows) - 1:
+                pdf.set_draw_color(*DIVIDER_GRAY)
+                pdf.set_line_width(0.2)
+                pdf.line(card_x + 8, card_y + (i + 1) * row_h, card_x + card_w - 8, card_y + (i + 1) * row_h)
+
+        # Footer tagline
+        pdf.set_y(page_h - 22)
+        pdf.set_font('helvetica', 'I', 9.5)
+        pdf.set_text_color(*CYAN_SOFT)
+        pdf.cell(0, 6, "Empowering Students Through the Elevate Initiative", align='C', ln=1)
+
+        # Restore default auto page-break behaviour for the rest of the report.
+        pdf.set_auto_page_break(True, margin=20)
+
     # Create PDF
     pdf = PDF()
-    pdf.add_page()
-    
+    pdf.alias_nb_pages()  # enables "Page X of {nb}" in the footer
+
     # Try to add Unicode font, fallback to helvetica
     try:
         pdf.add_font('helvetica', '', 'helvetica.ttf', uni=True)
@@ -1754,122 +2529,404 @@ def generate_pdf_report():
     def safe_cell(pdf, width, height, text, border=0, ln=0, align='L'):
         clean = clean_text(text)
         pdf.cell(width, height, clean, border, ln, align)
-    
-    # Title
-    pdf.set_font('helvetica', 'B', 20)
-    pdf.set_text_color(211, 84, 0)  # Orange
-    safe_cell(pdf, 0, 10, "CoActions Career Counselling Report", ln=True, align='C')
-    pdf.ln(10)
-    
+
+    # ------------------------------------------------------------------
+    # Layout helpers for content pages: colored title bars + rounded,
+    # bordered information cards. All content pages share consistent
+    # margins, spacing, and automatic page-break handling so cards never
+    # get cut off or overlap the footer.
+    # ------------------------------------------------------------------
+    def content_width():
+        return pdf.w - 2 * CONTENT_MARGIN
+
+    def ensure_space(height_needed):
+        """Force a page break if the upcoming block won't fit above the footer."""
+        if pdf.get_y() + height_needed > pdf.h - pdf.b_margin:
+            pdf.add_page()
+
+    def draw_title_bar(title):
+        ensure_space(14)
+        w = content_width()
+        x = CONTENT_MARGIN
+        y = pdf.get_y()
+        bar_h = 9
+        pdf.set_fill_color(*DARK_BLUE)
+        pdf.rect(x, y, w, bar_h, style='F', round_corners=True, corner_radius=1.6)
+        pdf.set_fill_color(*CYAN)
+        pdf.rect(x, y, 3, bar_h, style='F')
+        pdf.set_xy(x + 6, y)
+        pdf.set_font('helvetica', 'B', 11.5)
+        pdf.set_text_color(*PDF_WHITE)
+        pdf.cell(w - 10, bar_h, clean_text(title), align='L')
+        pdf.set_xy(x, y + bar_h + 4)
+
+    def draw_kv_card(title, pairs):
+        """Section title bar + rounded card of label/value rows (e.g. Student Information)."""
+        pad = 6
+        row_h = 8.4
+        card_h = row_h * len(pairs) + 2 * pad - 2
+        ensure_space(9 + 4 + card_h + 8)
+        draw_title_bar(title)
+        x = CONTENT_MARGIN
+        y = pdf.get_y()
+        w = content_width()
+        pdf.set_fill_color(*PDF_WHITE)
+        pdf.set_draw_color(*CARD_BORDER)
+        pdf.set_line_width(0.3)
+        pdf.rect(x, y, w, card_h, style='DF', round_corners=True, corner_radius=2.2)
+
+        label_w = 46
+        for i, (k, v) in enumerate(pairs):
+            row_y = y + pad + i * row_h
+            pdf.set_xy(x + pad, row_y)
+            pdf.set_font('helvetica', 'B', 8.6)
+            pdf.set_text_color(*LABEL_MUTED)
+            pdf.cell(label_w, 6, clean_text(str(k).upper()), align='L')
+            pdf.set_xy(x + pad + label_w, row_y)
+            pdf.set_font('helvetica', 'B', 10.5)
+            pdf.set_text_color(*DARK_BLUE)
+            pdf.cell(w - 2 * pad - label_w, 6, clean_text(str(v)), align='L')
+            if i < len(pairs) - 1:
+                pdf.set_draw_color(*CARD_BORDER)
+                pdf.set_line_width(0.2)
+                pdf.line(x + pad, row_y + row_h - 1.5, x + w - pad, row_y + row_h - 1.5)
+        pdf.set_xy(x, y + card_h + 8)
+
+    def draw_text_card(title, text):
+        """Section title bar + rounded card containing a single paragraph."""
+        body = clean_text(str(text)) if text not in (None, "") else "Not available."
+        pad = 6
+        inner_w = content_width() - 2 * pad
+        line_h = 5.6
+        pdf.set_font('helvetica', '', 10.5)
+        text_h = pdf.multi_cell(inner_w, line_h, body, dry_run=True, output="HEIGHT")
+        card_h = text_h + 2 * pad
+        ensure_space(9 + 4 + card_h + 8)
+        draw_title_bar(title)
+        x = CONTENT_MARGIN
+        y = pdf.get_y()
+        w = content_width()
+        pdf.set_fill_color(*PDF_WHITE)
+        pdf.set_draw_color(*CARD_BORDER)
+        pdf.set_line_width(0.3)
+        pdf.rect(x, y, w, card_h, style='DF', round_corners=True, corner_radius=2.2)
+        pdf.set_xy(x + pad, y + pad)
+        pdf.set_font('helvetica', '', 10.5)
+        pdf.set_text_color(*BODY_TEXT)
+        pdf.multi_cell(inner_w, line_h, body, align='L')
+        pdf.set_xy(x, y + card_h + 8)
+
+    def draw_bullet_card(title, items):
+        """Section title bar + rounded card containing a bulleted list."""
+        items = [clean_text(str(i)) for i in (items or []) if str(i).strip()]
+        if not items:
+            items = ["Not available."]
+        pad = 6
+        bullet_indent = 5
+        inner_w = content_width() - 2 * pad - bullet_indent
+        line_h = 5.6
+        pdf.set_font('helvetica', '', 10.5)
+        heights = [pdf.multi_cell(inner_w, line_h, it, dry_run=True, output="HEIGHT") for it in items]
+        gap = 2.2
+        card_h = sum(heights) + gap * (len(items) - 1) + 2 * pad
+        ensure_space(9 + 4 + card_h + 8)
+        draw_title_bar(title)
+        x = CONTENT_MARGIN
+        y = pdf.get_y()
+        w = content_width()
+        pdf.set_fill_color(*PDF_WHITE)
+        pdf.set_draw_color(*CARD_BORDER)
+        pdf.set_line_width(0.3)
+        pdf.rect(x, y, w, card_h, style='DF', round_corners=True, corner_radius=2.2)
+
+        cy = y + pad
+        for it, h in zip(items, heights):
+            pdf.set_fill_color(*CYAN)
+            pdf.ellipse(x + pad, cy + 1.6, 2, 2, style='F')
+            pdf.set_xy(x + pad + bullet_indent, cy)
+            pdf.set_font('helvetica', '', 10.5)
+            pdf.set_text_color(*BODY_TEXT)
+            pdf.multi_cell(inner_w, line_h, it, align='L')
+            cy += h + gap
+        pdf.set_xy(x, y + card_h + 8)
+
+    def draw_section(title, body):
+        """Route a section to a bullet card (list body) or text card (string body)."""
+        if isinstance(body, list):
+            draw_bullet_card(title, body)
+        else:
+            draw_text_card(title, body)
+
+    # ---- Cover Page ----
+    student_type_label = 'School Student' if st.session_state.user_type == 'school' else 'College Student'
+    draw_cover_page(
+        pdf,
+        student_name=st.session_state.student_name,
+        student_type_label=student_type_label,
+        career_stream_name=stream_name,
+    )
+
+    # Start the report content on a fresh page after the cover, using the
+    # shared content-page margins/auto-page-break configured above.
+    pdf.set_margins(CONTENT_MARGIN, 20, CONTENT_MARGIN)
+    pdf.set_auto_page_break(True, margin=24)
+    pdf.add_page()
+
     # Student Information
-    pdf.set_font('helvetica', 'B', 14)
-    pdf.set_text_color(46, 125, 50)  # Green
-    pdf.cell(0, 8, "Student Information", ln=True)
-    pdf.set_font('helvetica', '', 11)
-    pdf.set_text_color(0, 0, 0)
-    
-    safe_cell(pdf, 0, 6, f"Name: {st.session_state.student_name}", ln=True)
-    safe_cell(pdf, 0, 6, f"Age: {st.session_state.student_age}", ln=True)
-    safe_cell(pdf, 0, 6, f"Institution: {st.session_state.student_institution}", ln=True)
-    safe_cell(pdf, 0, 6, f"City: {st.session_state.student_city}", ln=True)
-    safe_cell(pdf, 0, 6, f"State: {st.session_state.student_state}", ln=True)
-    safe_cell(pdf, 0, 6, f"Grade/Year: {st.session_state.student_grade}", ln=True)
-    safe_cell(pdf, 0, 6, f"Assessment Type: {'School Student' if st.session_state.user_type == 'school' else 'College Student'} Pathway", ln=True)
-    safe_cell(pdf, 0, 6, f"Date: {datetime.now().strftime('%Y-%m-%d')}", ln=True)
-    pdf.ln(5)
-    
+    draw_kv_card("Student Information", [
+        ("Name", st.session_state.student_name),
+        ("Age", st.session_state.student_age),
+        ("Institution", st.session_state.student_institution),
+        ("City", st.session_state.student_city),
+        ("State", st.session_state.student_state),
+        ("Grade/Year", st.session_state.student_grade),
+        ("Assessment Type", f"{'School Student' if st.session_state.user_type == 'school' else 'College Student'} Pathway"),
+        ("Date", datetime.now().strftime('%Y-%m-%d')),
+    ])
+
     # Selected Stream
-    pdf.set_font('helvetica', 'B', 14)
-    pdf.set_text_color(211, 84, 0)
-    pdf.cell(0, 8, "Selected Stream", ln=True)
-    pdf.set_font('helvetica', '', 11)
-    pdf.set_text_color(0, 0, 0)
-    safe_cell(pdf, 0, 6, f"Stream: {stream_name}", ln=True)
-    safe_cell(pdf, 0, 6, f"Match Score: {score_value:.1f}%", ln=True)
-    pdf.ln(5)
+    draw_kv_card("Selected Stream", [
+        ("Stream", stream_name),
+        ("Match Score", f"{score_value:.1f}%"),
+    ])
+
+    # MODIFICATION (PDF charts): Top Career Match Percentages bar chart -
+    # visualises the same match_percentage values shown in the app's
+    # "Top Matching Careers" / "Top 3 AI Career Recommendations" screens.
+    if top_match_items:
+        chart_fig_w_in = (content_width() - 12) / 25.4  # card inner width, mm -> in
+        draw_chart_card(
+            pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
+            PDF_WHITE, CARD_BORDER, "Top Career Match Percentages",
+            chart_top_career_matches(top_match_items, chart_fig_w_in),
+            chart_fig_w_in,
+        )
 
     # AI Recommendation
-    pdf.set_font('helvetica', 'B', 14)
-    pdf.set_text_color(46, 125, 50)
-    pdf.cell(0, 8, "AI Recommendation", ln=True)
-    pdf.set_font('helvetica', '', 11)
-    pdf.set_text_color(0, 0, 0)
-    safe_multi_cell(pdf, 0, 6, recommendation.get('message', 'Recommendations are not available yet.'))
-    pdf.ln(5)
+    draw_text_card("AI Recommendation", recommendation.get('message', 'Recommendations are not available yet.'))
 
     # AI Analysis - Strengths & Opportunities only (never Weaknesses/Threats)
     analysis = st.session_state.get('ai_analysis')
     if analysis:
-        pdf.set_font('helvetica', 'B', 14)
-        pdf.set_text_color(211, 84, 0)
-        pdf.cell(0, 8, "AI Analysis", ln=True)
-
-        pdf.set_font('helvetica', 'B', 12)
-        pdf.set_text_color(46, 125, 50)
-        pdf.cell(0, 7, "Strengths", ln=True)
-        pdf.set_font('helvetica', '', 11)
-        pdf.set_text_color(0, 0, 0)
-        for s in analysis.get('strengths', []):
-            safe_multi_cell(pdf, 0, 6, f"- {s}")
-        pdf.ln(2)
-
-        pdf.set_font('helvetica', 'B', 12)
-        pdf.set_text_color(46, 125, 50)
-        pdf.cell(0, 7, "Opportunities", ln=True)
-        pdf.set_font('helvetica', '', 11)
-        pdf.set_text_color(0, 0, 0)
-        for o in analysis.get('opportunities', []):
-            safe_multi_cell(pdf, 0, 6, f"- {o}")
-        pdf.ln(5)
+        draw_bullet_card("Strengths", analysis.get('strengths', []))
+        draw_bullet_card("Opportunities", analysis.get('opportunities', []))
 
     # Full AI deep-dive report
     deep_dive = st.session_state.get('ai_deep_dive')
     if deep_dive:
-        def pdf_section(title, body):
-            pdf.set_font('helvetica', 'B', 13)
-            pdf.set_text_color(211, 84, 0)
-            pdf.cell(0, 8, title, ln=True)
-            pdf.set_font('helvetica', '', 11)
-            pdf.set_text_color(0, 0, 0)
-            if isinstance(body, list):
-                for item in body:
-                    safe_multi_cell(pdf, 0, 6, f"- {item}")
-            else:
-                safe_multi_cell(pdf, 0, 6, str(body))
-            pdf.ln(3)
+        draw_section("Career Overview", deep_dive.get("career_overview", ""))
+        draw_section("Future Scope", deep_dive.get("future_scope", ""))
+        draw_section("Technical Skills", deep_dive.get("technical_skills", []))
+        draw_section("Soft Skills", deep_dive.get("soft_skills", []))
 
-        pdf_section("Career Overview", deep_dive.get("career_overview", ""))
-        pdf_section("Future Scope", deep_dive.get("future_scope", ""))
-        pdf_section("Technical Skills", deep_dive.get("technical_skills", []))
-        pdf_section("Soft Skills", deep_dive.get("soft_skills", []))
-        pdf_section("Major Hiring Cities in India", deep_dive.get("major_hiring_cities_india", []))
-        pdf_section("Major Industry Hubs", deep_dive.get("major_industry_hubs", []))
-        pdf_section("Top Hiring Industries", deep_dive.get("top_hiring_industries", []))
+        # MODIFICATION (PDF charts): Technical Skills vs Soft Skills pie
+        # chart - purely a visual count comparison of the two skill lists
+        # already rendered as text/bullets above; no new data generated.
+        tech_count = len(deep_dive.get("technical_skills", []) or [])
+        soft_count = len(deep_dive.get("soft_skills", []) or [])
+        if tech_count or soft_count:
+            chart_fig_w_in = (content_width() - 12) / 25.4
+            draw_chart_card(
+                pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
+                PDF_WHITE, CARD_BORDER, "Technical Skills vs Soft Skills",
+                chart_skills_pie(tech_count, soft_count, chart_fig_w_in),
+                chart_fig_w_in,
+            )
+
+        draw_section("Major Hiring Cities in India", deep_dive.get("major_hiring_cities_india", []))
+        draw_section("Major Industry Hubs", deep_dive.get("major_industry_hubs", []))
+        draw_section("Top Hiring Industries", deep_dive.get("top_hiring_industries", []))
 
         # education_path is a structured object, shaped differently for
         # school vs college students - render each sub-field as its own
         # mini-section instead of dumping the raw dict.
         education_path = deep_dive.get("education_path", {}) or {}
         if st.session_state.user_type == 'school':
-            pdf_section("Recommended Stream", education_path.get("recommended_stream", ""))
-            pdf_section("Undergraduate Degree", education_path.get("undergraduate_degree", ""))
-            pdf_section("Higher Studies", education_path.get("higher_studies", ""))
-            pdf_section("Certifications (Education Path)", education_path.get("certifications", []))
+            draw_section("Recommended Stream", education_path.get("recommended_stream", ""))
+            draw_section("Undergraduate Degree", education_path.get("undergraduate_degree", ""))
+            draw_section("Higher Studies", education_path.get("higher_studies", ""))
+            draw_section("Certifications (Education Path)", education_path.get("certifications", []))
         else:
-            pdf_section("Higher Education Options", education_path.get("higher_education_options", ""))
-            pdf_section("Professional Certifications", education_path.get("professional_certifications", []))
-            pdf_section("Specializations", education_path.get("specializations", []))
-            pdf_section("Career Advancement", education_path.get("career_advancement", ""))
+            draw_section("Higher Education Options", education_path.get("higher_education_options", ""))
+            draw_section("Professional Certifications", education_path.get("professional_certifications", []))
+            draw_section("Specializations", education_path.get("specializations", []))
+            draw_section("Career Advancement", education_path.get("career_advancement", ""))
 
         # learning_resources is also a structured object with 5 categories.
         learning_resources = deep_dive.get("learning_resources", {}) or {}
-        pdf_section("Recommended Certifications", learning_resources.get("recommended_certifications", []))
-        pdf_section("Free Learning Resources", learning_resources.get("free_learning_resources", []))
-        pdf_section("Online Platforms", learning_resources.get("online_platforms", []))
-        pdf_section("Books", learning_resources.get("books", []))
-        pdf_section("Communities", learning_resources.get("communities", []))
+        draw_section("Recommended Certifications", learning_resources.get("recommended_certifications", []))
+        draw_section("Free Learning Resources", learning_resources.get("free_learning_resources", []))
+        draw_section("Online Platforms", learning_resources.get("online_platforms", []))
+        draw_section("Books", learning_resources.get("books", []))
+        draw_section("Communities", learning_resources.get("communities", []))
 
-        pdf_section("Related Career Roles", deep_dive.get("related_career_roles", []))
+        draw_section("Related Career Roles", deep_dive.get("related_career_roles", []))
+
+    # ==================================================================
+    # MODIFICATION (Career Role Deep Dive / Top 10 Related Roles): if the
+    # student has explored a specific career role in this session (Career
+    # Detail generated for it), give that role its own dedicated,
+    # richly-detailed section - entirely reusing content already
+    # generated elsewhere in the app (Career Detail, 12-Month Roadmap, AI
+    # Skill Gap Analysis) so no new AI calls happen and the recommendation
+    # engine / app workflow is untouched. Otherwise, auto-generate a
+    # Top 10 Related Career Roles overview for the recommended stream so
+    # the report is never missing this content. Every block below uses
+    # the same draw_* / ensure_space page-break helpers as the rest of
+    # the report, so pages are created dynamically and nothing overlaps
+    # or gets cut off; a page is only started right before content that
+    # will immediately be drawn onto it, so no blank pages are produced.
+    # ==================================================================
+    explored_role_name = st.session_state.get('selected_career_role')
+    explored_role_detail = st.session_state.get('ai_role_detail')
+
+    if explored_role_name and explored_role_detail:
+        pdf.add_page()
+        draw_title_bar(f"Career Role Deep Dive: {explored_role_name}")
+
+        draw_text_card("Career Overview", explored_role_detail.get("career_description", ""))
+        draw_bullet_card("Required Skills", explored_role_detail.get("required_skills", []))
+        draw_text_card(
+            "Salary Range & Future Scope",
+            f"Salary Range (India): {explored_role_detail.get('salary_range_india', 'Not available')}\n\n"
+            f"Future Scope: {explored_role_detail.get('future_demand') or explored_role_detail.get('future_job_growth') or 'Not available'}",
+        )
+        draw_bullet_card("Top Companies", explored_role_detail.get("top_hiring_companies", []))
+
+        # ---- Skill Gap Analysis sub-section (reuses cached data + the
+        # existing progress-bar chart helpers, exactly as already shown
+        # on the "AI Skill Gap Analysis" page for this role). ----
+        role_skill_gap = st.session_state.get('skill_gap_analysis')
+        draw_title_bar(f"Skill Gap Analysis: {explored_role_name}")
+        if role_skill_gap:
+            readiness_score = role_skill_gap.get('overall_readiness_score', 0) or 0
+            draw_text_card(f"Overall Career Readiness: {readiness_score}%", role_skill_gap.get("readiness_summary", ""))
+
+            readiness_strengths_for_chart = [
+                (item.get('skill_name', ''), item.get('proficiency_score', 0))
+                for item in role_skill_gap.get('current_strengths', []) if item.get('skill_name')
+            ]
+            chart_fig_w_in = (content_width() - 12) / 25.4
+            draw_chart_card(
+                pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
+                PDF_WHITE, CARD_BORDER, "Career Readiness",
+                chart_career_readiness(readiness_score, readiness_strengths_for_chart, chart_fig_w_in),
+                chart_fig_w_in,
+            )
+
+            draw_bullet_card("Missing Skills", [
+                f"[{item.get('importance', '')}] {item.get('skill_name', '')}: {item.get('explanation', '')}"
+                for item in role_skill_gap.get('missing_skills', [])
+            ])
+
+            skill_gap_items_for_chart = [
+                (item.get('skill_name', ''), item.get('difficulty_score', 0), item.get('difficulty_label', ''))
+                for item in role_skill_gap.get('learning_difficulty', []) if item.get('skill_name')
+            ]
+            if skill_gap_items_for_chart:
+                chart_fig_w_in = (content_width() - 12) / 25.4
+                draw_chart_card(
+                    pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
+                    PDF_WHITE, CARD_BORDER, "Skill Gap Progress Visualization",
+                    chart_skill_gap(skill_gap_items_for_chart, chart_fig_w_in),
+                    chart_fig_w_in,
+                )
+        else:
+            draw_text_card(
+                "Skill Gap Analysis",
+                f"This section has not been generated yet in this session - visit "
+                f'"View AI Skill Gap Analysis for {explored_role_name}" first to include it here.',
+            )
+
+        # ---- Learning Roadmap sub-section (reuses cached data + the
+        # existing timeline chart helper, exactly as already shown on the
+        # "12-Month Learning Roadmap" page for this role). ----
+        role_roadmap = st.session_state.get('learning_roadmap')
+        draw_title_bar(f"Learning Roadmap: {explored_role_name}")
+        certifications, resources = [], []
+        if role_roadmap:
+            draw_text_card("Roadmap Overview", role_roadmap.get("roadmap_overview", ""))
+
+            roadmap_months_for_chart = [
+                (m.get('month_number', ''), m.get('month_title', ''))
+                for m in role_roadmap.get('months', [])
+            ]
+            if roadmap_months_for_chart:
+                chart_fig_w_in = (content_width() - 12) / 25.4
+                draw_chart_card(
+                    pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
+                    PDF_WHITE, CARD_BORDER, "Learning Roadmap Progress Timeline",
+                    chart_roadmap_timeline(roadmap_months_for_chart, chart_fig_w_in),
+                    chart_fig_w_in,
+                )
+
+            draw_bullet_card("Month-by-Month Plan", [
+                f"Month {m.get('month_number', '')}: {m.get('month_title', '')}"
+                for m in role_roadmap.get('months', [])
+            ])
+
+            # Certifications & Learning Resources are aggregated (deduped,
+            # order-preserved) from the roadmap already generated for
+            # this specific role - genuinely role-specific, no new AI call.
+            seen_certs, seen_res = set(), set()
+            for m in role_roadmap.get('months', []):
+                for c in m.get('certifications', []) or []:
+                    if c and c not in seen_certs:
+                        seen_certs.add(c)
+                        certifications.append(c)
+                for r in m.get('free_resources', []) or []:
+                    if r and r not in seen_res:
+                        seen_res.add(r)
+                        resources.append(r)
+        else:
+            draw_text_card(
+                "Learning Roadmap",
+                f"This section has not been generated yet in this session - visit "
+                f'"View 12-Month Roadmap for {explored_role_name}" first to include it here.',
+            )
+
+        # Fall back to the stream-level learning resources (already
+        # generated as part of the AI deep-dive) if the roadmap didn't
+        # yield any certifications/resources of its own.
+        if not certifications:
+            certifications = (deep_dive.get("learning_resources", {}) or {}).get("recommended_certifications", []) if deep_dive else []
+        if not resources:
+            lr = (deep_dive.get("learning_resources", {}) or {}) if deep_dive else {}
+            resources = (lr.get("free_learning_resources", []) or []) + (lr.get("online_platforms", []) or [])
+
+        draw_bullet_card("Certifications", certifications)
+        draw_bullet_card("Learning Resources", resources)
+
+    else:
+        # ---- Top 10 Related Career Roles (auto-generated for the
+        # recommended stream since no specific role has been explored). ----
+        pdf.add_page()
+        draw_title_bar(f"Top 10 Related Career Roles: {stream_name}")
+
+        student_details_for_roles = {"name": st.session_state.get('student_name', '')}
+        top10_roles = generate_top10_related_roles(
+            student_details_for_roles, stream_name, st.session_state.get('user_type', 'college')
+        )
+
+        if top10_roles:
+            for i, role in enumerate(top10_roles, start=1):
+                draw_title_bar(f"{i}. {role.get('role_name', '')}")
+                draw_text_card("Overview", role.get("short_description", ""))
+                draw_text_card(
+                    "Salary Range & Future Scope",
+                    f"Salary Range (India): {role.get('salary_range_india', 'Not available')}\n\n"
+                    f"Future Scope: {role.get('future_scope', 'Not available')}",
+                )
+                draw_bullet_card("Required Skills", role.get("required_skills", []))
+        else:
+            # Graceful fallback: reuse whichever plain role-name list is
+            # already cached from the AI deep-dive, so this section is
+            # never blank even if the extra AI call above is unavailable.
+            fallback_names = (st.session_state.get('ai_deep_dive') or {}).get("related_career_roles", [])
+            draw_bullet_card(
+                "Related Career Roles",
+                fallback_names or ["Related career role details are not available yet for this stream."],
+            )
 
     # Save to temporary file
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
@@ -1877,6 +2934,452 @@ def generate_pdf_report():
     temp_file.close()
     
     return temp_file.name
+
+
+def generate_role_detail_pdf(role_name, stream_name):
+    """
+    Generate a single downloadable PDF for the Career Detail page that
+    bundles together every AI-generated section relevant to this specific
+    role: the Career Detail breakdown itself, the 12-Month Learning
+    Roadmap, the AI Skill Gap Analysis, and the AI Resume Suggestions -
+    whichever of those have already been generated for this role in the
+    current session (nothing is regenerated here; this only renders
+    what's already cached in st.session_state, exactly as shown on-screen).
+
+    Visual design matches generate_pdf_report(): a Dark Blue / Cyan /
+    White brand theme with a branded header/footer (page numbers +
+    "CoActions - AI Career Guidance & Career Counselling System"),
+    colored title bars for every section heading, and rounded, bordered
+    information cards for every block of content. No report data is
+    changed here - only presentation.
+    """
+    import tempfile
+    import re
+
+    detail = st.session_state.get('ai_role_detail')
+    roadmap = st.session_state.get('learning_roadmap')
+    skill_gap = st.session_state.get('skill_gap_analysis')
+    resume = st.session_state.get('resume_suggestions')
+
+    # ------------------------------------------------------------------
+    # Shared design tokens - identical brand palette to generate_pdf_report()
+    # ------------------------------------------------------------------
+    DARK_BLUE = (13, 27, 62)
+    CYAN = (34, 211, 238)
+    CYAN_SOFT = (125, 230, 245)
+    PDF_WHITE = (255, 255, 255)
+    BODY_TEXT = (30, 41, 63)
+    LABEL_MUTED = (68, 92, 130)
+    CARD_BORDER = (204, 234, 241)
+    NAVY_TEXT = (13, 27, 62)
+    CONTENT_MARGIN = 14
+
+    class PDF(FPDF):
+        def header(self):
+            self.set_fill_color(*DARK_BLUE)
+            self.rect(0, 0, self.w, 10, style='F')
+            self.set_fill_color(*CYAN)
+            self.rect(0, 10, self.w, 1.1, style='F')
+
+            self.set_xy(CONTENT_MARGIN, 1.6)
+            self.set_font('helvetica', 'B', 10.5)
+            self.set_text_color(*PDF_WHITE)
+            self.cell(90, 6.5, 'CoActions', align='L')
+
+            self.set_xy(0, 2.2)
+            self.set_font('helvetica', '', 8)
+            self.set_text_color(180, 230, 240)
+            self.cell(self.w - CONTENT_MARGIN, 6, 'AI Career Guidance & Career Counselling System', align='R')
+
+            self.set_y(20)
+
+        def footer(self):
+            self.set_draw_color(*CYAN)
+            self.set_line_width(0.4)
+            self.line(CONTENT_MARGIN, self.h - 18, self.w - CONTENT_MARGIN, self.h - 18)
+
+            self.set_xy(CONTENT_MARGIN, self.h - 16)
+            self.set_font('helvetica', '', 8)
+            self.set_text_color(*LABEL_MUTED)
+            self.cell(self.w - 2 * CONTENT_MARGIN, 4.6,
+                      'CoActions  -  AI Career Guidance & Career Counselling System', align='L')
+
+            self.set_xy(0, self.h - 16)
+            self.set_font('helvetica', '', 8)
+            self.set_text_color(*LABEL_MUTED)
+            self.cell(self.w - CONTENT_MARGIN, 4.6, f'Page {self.page_no()} of {{nb}}', align='R')
+
+    pdf = PDF()
+    pdf.alias_nb_pages()  # enables "Page X of {nb}" in the footer
+    pdf.set_margins(CONTENT_MARGIN, 20, CONTENT_MARGIN)
+    pdf.set_auto_page_break(True, margin=24)
+    pdf.add_page()
+
+    try:
+        pdf.add_font('helvetica', '', 'helvetica.ttf', uni=True)
+        pdf.set_font('helvetica', '', 12)
+    except Exception:
+        pdf.set_font('helvetica', '', 12)
+
+    def clean_text(text):
+        emoji_pattern = re.compile("["
+            u"\U0001F600-\U0001F64F"
+            u"\U0001F300-\U0001F5FF"
+            u"\U0001F680-\U0001F6FF"
+            u"\U0001F1E0-\U0001F1FF"
+            u"\U00002702-\U000027B0"
+            u"\U000024C2-\U0001F251"
+            u"\U0001F900-\U0001F9FF"
+            u"\U0001FA70-\U0001FAFF"
+            "]+", flags=re.UNICODE)
+        text = emoji_pattern.sub(r'', str(text))
+        text = text.replace('•', '-').replace('●', '-').replace('○', '-')
+        text = text.encode('ascii', 'ignore').decode('ascii')
+        return text.strip()
+
+    # ------------------------------------------------------------------
+    # Layout helpers - same visual language as generate_pdf_report():
+    # colored title bars + rounded, bordered cards, with page-break-aware
+    # spacing so nothing overlaps the header or footer.
+    # ------------------------------------------------------------------
+    def content_width():
+        return pdf.w - 2 * CONTENT_MARGIN
+
+    def ensure_space(height_needed):
+        if pdf.get_y() + height_needed > pdf.h - pdf.b_margin:
+            pdf.add_page()
+
+    def draw_title_bar(title, big=False):
+        ensure_space(16 if big else 14)
+        w = content_width()
+        x = CONTENT_MARGIN
+        y = pdf.get_y()
+        bar_h = 11 if big else 9
+        pdf.set_fill_color(*DARK_BLUE)
+        pdf.rect(x, y, w, bar_h, style='F', round_corners=True, corner_radius=1.6)
+        pdf.set_fill_color(*CYAN)
+        pdf.rect(x, y, 3, bar_h, style='F')
+        pdf.set_xy(x + 6, y)
+        pdf.set_font('helvetica', 'B', 13 if big else 11.5)
+        pdf.set_text_color(*PDF_WHITE)
+        pdf.cell(w - 10, bar_h, clean_text(title), align='L')
+        pdf.set_xy(x, y + bar_h + 4)
+
+    def draw_month_divider(month_num, month_title):
+        """Lighter cyan sub-heading marking the start of one month's block,
+        visually nested under the main 'Learning Roadmap' title bar."""
+        ensure_space(12)
+        w = content_width()
+        x = CONTENT_MARGIN
+        y = pdf.get_y()
+        bar_h = 7.5
+        pdf.set_fill_color(*CYAN)
+        pdf.rect(x, y, w, bar_h, style='F', round_corners=True, corner_radius=1.4)
+        pdf.set_xy(x + 5, y)
+        pdf.set_font('helvetica', 'B', 10)
+        pdf.set_text_color(*DARK_BLUE)
+        pdf.cell(w - 10, bar_h, clean_text(f"MONTH {month_num}  -  {month_title}"), align='L')
+        pdf.set_xy(x, y + bar_h + 3)
+
+    def draw_kv_card(title, pairs, big_title=False):
+        pad = 6
+        row_h = 8.4
+        card_h = row_h * len(pairs) + 2 * pad - 2
+        ensure_space((11 if big_title else 9) + 4 + card_h + 8)
+        draw_title_bar(title, big=big_title)
+        x = CONTENT_MARGIN
+        y = pdf.get_y()
+        w = content_width()
+        pdf.set_fill_color(*PDF_WHITE)
+        pdf.set_draw_color(*CARD_BORDER)
+        pdf.set_line_width(0.3)
+        pdf.rect(x, y, w, card_h, style='DF', round_corners=True, corner_radius=2.2)
+
+        label_w = 58
+        for i, (k, v) in enumerate(pairs):
+            row_y = y + pad + i * row_h
+            pdf.set_xy(x + pad, row_y)
+            pdf.set_font('helvetica', 'B', 8.6)
+            pdf.set_text_color(*LABEL_MUTED)
+            pdf.cell(label_w, 6, clean_text(str(k).upper()), align='L')
+            pdf.set_xy(x + pad + label_w, row_y)
+            pdf.set_font('helvetica', 'B', 10.5)
+            pdf.set_text_color(*DARK_BLUE)
+            pdf.cell(w - 2 * pad - label_w, 6, clean_text(str(v)), align='L')
+            if i < len(pairs) - 1:
+                pdf.set_draw_color(*CARD_BORDER)
+                pdf.set_line_width(0.2)
+                pdf.line(x + pad, row_y + row_h - 1.5, x + w - pad, row_y + row_h - 1.5)
+        pdf.set_xy(x, y + card_h + 8)
+
+    def draw_text_card(title, text):
+        body = clean_text(str(text)) if text not in (None, "") else "Not available."
+        pad = 6
+        inner_w = content_width() - 2 * pad
+        line_h = 5.6
+        pdf.set_font('helvetica', '', 10.5)
+        text_h = pdf.multi_cell(inner_w, line_h, body, dry_run=True, output="HEIGHT")
+        card_h = text_h + 2 * pad
+        ensure_space(9 + 4 + card_h + 8)
+        draw_title_bar(title)
+        x = CONTENT_MARGIN
+        y = pdf.get_y()
+        w = content_width()
+        pdf.set_fill_color(*PDF_WHITE)
+        pdf.set_draw_color(*CARD_BORDER)
+        pdf.set_line_width(0.3)
+        pdf.rect(x, y, w, card_h, style='DF', round_corners=True, corner_radius=2.2)
+        pdf.set_xy(x + pad, y + pad)
+        pdf.set_font('helvetica', '', 10.5)
+        pdf.set_text_color(*BODY_TEXT)
+        pdf.multi_cell(inner_w, line_h, body, align='L')
+        pdf.set_xy(x, y + card_h + 8)
+
+    def draw_bullet_card(title, items, with_title_bar=True):
+        items = [clean_text(str(i)) for i in (items or []) if str(i).strip()]
+        if not items:
+            items = ["Not available."]
+        pad = 6
+        bullet_indent = 5
+        inner_w = content_width() - 2 * pad - bullet_indent
+        line_h = 5.6
+        pdf.set_font('helvetica', '', 10.5)
+        heights = [pdf.multi_cell(inner_w, line_h, it, dry_run=True, output="HEIGHT") for it in items]
+        gap = 2.2
+        card_h = sum(heights) + gap * (len(items) - 1) + 2 * pad
+        ensure_space((9 + 4 if with_title_bar else 0) + card_h + 8)
+        if with_title_bar:
+            draw_title_bar(title)
+        x = CONTENT_MARGIN
+        y = pdf.get_y()
+        w = content_width()
+        pdf.set_fill_color(*PDF_WHITE)
+        pdf.set_draw_color(*CARD_BORDER)
+        pdf.set_line_width(0.3)
+        pdf.rect(x, y, w, card_h, style='DF', round_corners=True, corner_radius=2.2)
+
+        cy = y + pad
+        for it, h in zip(items, heights):
+            pdf.set_fill_color(*CYAN)
+            pdf.ellipse(x + pad, cy + 1.6, 2, 2, style='F')
+            pdf.set_xy(x + pad + bullet_indent, cy)
+            pdf.set_font('helvetica', '', 10.5)
+            pdf.set_text_color(*BODY_TEXT)
+            pdf.multi_cell(inner_w, line_h, it, align='L')
+            cy += h + gap
+        pdf.set_xy(x, y + card_h + 8)
+
+    def draw_section(title, body):
+        if isinstance(body, list):
+            draw_bullet_card(title, body)
+        else:
+            draw_text_card(title, body)
+
+    def draw_note_card(message):
+        """Rounded, cyan-bordered info card for 'not generated yet' notices."""
+        pad = 6
+        inner_w = content_width() - 2 * pad
+        line_h = 5.6
+        pdf.set_font('helvetica', 'I', 10)
+        text_h = pdf.multi_cell(inner_w, line_h, clean_text(message), dry_run=True, output="HEIGHT")
+        card_h = text_h + 2 * pad
+        ensure_space(card_h + 8)
+        x = CONTENT_MARGIN
+        y = pdf.get_y()
+        w = content_width()
+        pdf.set_fill_color(*PDF_WHITE)
+        pdf.set_draw_color(*CYAN)
+        pdf.set_line_width(0.4)
+        pdf.rect(x, y, w, card_h, style='DF', round_corners=True, corner_radius=2.2)
+        pdf.set_fill_color(*CYAN)
+        pdf.rect(x, y, 3, card_h, style='F')
+        pdf.set_xy(x + pad, y + pad)
+        pdf.set_font('helvetica', 'I', 10)
+        pdf.set_text_color(*LABEL_MUTED)
+        pdf.multi_cell(inner_w, line_h, clean_text(message), align='L')
+        pdf.set_xy(x, y + card_h + 8)
+
+    def not_generated_note(section_label, page_hint):
+        draw_note_card(
+            f"{section_label} has not been generated yet in this session - visit \"{page_hint}\" first to include it here."
+        )
+
+    # ---- Header: report title + student info card ----
+    draw_kv_card(
+        "CoActions Career Detail Report",
+        [
+            ("Name", st.session_state.get('student_name', '')),
+            ("Grade / Year", st.session_state.get('student_grade', '')),
+            ("Stream", stream_name),
+            ("Career Role", role_name),
+            ("Date", datetime.now().strftime('%Y-%m-%d')),
+        ],
+        big_title=True,
+    )
+
+    # ---- Section 1: Career Detail ----
+    draw_title_bar(f"Career Detail: {role_name}", big=True)
+    if detail:
+        draw_section("Career Description", detail.get("career_description", ""))
+        draw_section("Salary Range (India)", detail.get("salary_range_india", ""))
+        draw_section("Educational Requirements", detail.get("educational_requirements", []))
+        draw_section("Required Skills", detail.get("required_skills", []))
+        draw_section("Job Responsibilities", detail.get("job_responsibilities", []))
+        draw_section("Job Growth", detail.get("future_job_growth", ""))
+        draw_section("Industry Outlook", detail.get("industry_outlook", ""))
+        draw_section("Top Hiring Companies", detail.get("top_hiring_companies", []))
+        draw_section("Future Demand", detail.get("future_demand", ""))
+    else:
+        not_generated_note("Career Detail", "Career Detail")
+
+    # ---- Section 2: 12-Month Learning Roadmap ----
+    pdf.add_page()
+    draw_title_bar(f"12-Month Learning Roadmap: {role_name}", big=True)
+    if roadmap:
+        level_label = "Beginner Level" if st.session_state.user_type == 'school' else "Advanced / Industry Level"
+        draw_section(f"Roadmap Overview ({level_label})", roadmap.get("roadmap_overview", ""))
+
+        # MODIFICATION (PDF charts): Learning Roadmap Progress Timeline -
+        # a horizontal timeline of the same months detailed below, giving
+        # a one-glance overview before the month-by-month breakdown.
+        roadmap_months_for_chart = [
+            (m.get('month_number', ''), m.get('month_title', ''))
+            for m in roadmap.get('months', [])
+        ]
+        if roadmap_months_for_chart:
+            chart_fig_w_in = (content_width() - 12) / 25.4
+            draw_chart_card(
+                pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
+                PDF_WHITE, CARD_BORDER, "Learning Roadmap Progress Timeline",
+                chart_roadmap_timeline(roadmap_months_for_chart, chart_fig_w_in),
+                chart_fig_w_in,
+            )
+
+        for month in roadmap.get('months', []):
+            month_num = month.get('month_number', '')
+            draw_month_divider(month_num, month.get('month_title', ''))
+            draw_section("Skills to Learn", month.get("skills_to_learn", []))
+            draw_section("Topics", month.get("topics", []))
+            draw_section("Practice Activities", month.get("practice_activities", []))
+            draw_section("Mini Projects", month.get("mini_projects", []))
+            draw_section("Recommended Free Resources", month.get("free_resources", []))
+            draw_section("Certifications", month.get("certifications", []))
+    else:
+        not_generated_note("The 12-Month Learning Roadmap", f"View 12-Month Roadmap for {role_name}")
+
+    # ---- Section 3: AI Skill Gap Analysis ----
+    pdf.add_page()
+    draw_title_bar(f"AI Skill Gap Analysis: {role_name}", big=True)
+    if skill_gap:
+        readiness_score = skill_gap.get('overall_readiness_score', 0) or 0
+        draw_text_card(f"Overall Career Readiness: {readiness_score}%", skill_gap.get("readiness_summary", ""))
+
+        # MODIFICATION (PDF charts): Progress Bars for Career Readiness -
+        # visualises the same overall_readiness_score above plus each
+        # current-strength's proficiency_score (both already shown as
+        # text below) as brand-colored progress bars.
+        readiness_strengths_for_chart = [
+            (item.get('skill_name', ''), item.get('proficiency_score', 0))
+            for item in skill_gap.get('current_strengths', []) if item.get('skill_name')
+        ]
+        chart_fig_w_in = (content_width() - 12) / 25.4
+        draw_chart_card(
+            pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
+            PDF_WHITE, CARD_BORDER, "Career Readiness",
+            chart_career_readiness(readiness_score, readiness_strengths_for_chart, chart_fig_w_in),
+            chart_fig_w_in,
+        )
+
+        draw_bullet_card("Current Strengths", [
+            f"{item.get('skill_name', '')} ({item.get('proficiency_score', 0)}%): {item.get('explanation', '')}"
+            for item in skill_gap.get('current_strengths', [])
+        ])
+        draw_bullet_card("Missing Skills", [
+            f"[{item.get('importance', '')}] {item.get('skill_name', '')}: {item.get('explanation', '')}"
+            for item in skill_gap.get('missing_skills', [])
+        ])
+        draw_bullet_card("Priority Skills", [
+            f"#{item.get('priority_rank', '')} {item.get('skill_name', '')}: {item.get('reason', '')}"
+            for item in skill_gap.get('priority_skills', [])
+        ])
+        draw_bullet_card("Learning Difficulty", [
+            f"{item.get('skill_name', '')} ({item.get('difficulty_label', '')}, {item.get('difficulty_score', 0)}%): {item.get('reason', '')}"
+            for item in skill_gap.get('learning_difficulty', [])
+        ])
+
+        # MODIFICATION (PDF charts): Skill Gap Progress Visualization -
+        # visualises the same learning_difficulty scores above (per
+        # missing skill) as a color-coded bar chart, doubling as a
+        # quick priority-reading aid (darker = harder/higher priority).
+        skill_gap_items_for_chart = [
+            (item.get('skill_name', ''), item.get('difficulty_score', 0), item.get('difficulty_label', ''))
+            for item in skill_gap.get('learning_difficulty', []) if item.get('skill_name')
+        ]
+        if skill_gap_items_for_chart:
+            chart_fig_w_in = (content_width() - 12) / 25.4
+            draw_chart_card(
+                pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
+                PDF_WHITE, CARD_BORDER, "Skill Gap Progress Visualization",
+                chart_skill_gap(skill_gap_items_for_chart, chart_fig_w_in),
+                chart_fig_w_in,
+            )
+
+        draw_bullet_card("Recommended Learning Order", [
+            f"{item.get('order', '')}. {item.get('skill_name', '')}: {item.get('rationale', '')}"
+            for item in skill_gap.get('recommended_learning_order', [])
+        ])
+        draw_bullet_card("Estimated Learning Time", [
+            f"{item.get('skill_name', '')}: {item.get('estimated_duration', '')} ({item.get('weekly_commitment', '')})"
+            for item in skill_gap.get('estimated_learning_time', [])
+        ])
+    else:
+        not_generated_note("The AI Skill Gap Analysis", f"View AI Skill Gap Analysis for {role_name}")
+
+    # ---- Section 4: AI Resume Suggestions ----
+    pdf.add_page()
+    draw_title_bar(f"AI Resume Suggestions: {role_name}", big=True)
+    if resume:
+        draw_bullet_card("Resume Headline Options", [
+            f"Option {idx}: {headline}"
+            for idx, headline in enumerate(resume.get('resume_headline', []), start=1)
+        ])
+        draw_bullet_card("Career Objective Options", [
+            f"Option {idx}: {objective}"
+            for idx, objective in enumerate(resume.get('career_objective', []), start=1)
+        ])
+        draw_bullet_card("Key Skills to Feature", [
+            f"{item.get('skill_name', '')}: {item.get('reason', '')}"
+            for item in resume.get('key_skills', [])
+        ])
+        draw_bullet_card("Projects to Include", [
+            f"{item.get('project_title', '')}: {item.get('description', '')} ({item.get('relevance', '')})"
+            for item in resume.get('projects_to_include', [])
+        ])
+        draw_bullet_card("Certifications", [
+            f"{item.get('certification_name', '')}: {item.get('reason', '')}"
+            for item in resume.get('certifications', [])
+        ])
+        draw_bullet_card("Achievements to Pursue/Highlight", [
+            f"{item.get('suggestion', '')}: {item.get('reason', '')}"
+            for item in resume.get('achievements', [])
+        ])
+        draw_bullet_card("Portfolio Suggestions", [
+            f"{item.get('suggestion', '')} ({item.get('platform_or_format', '')}): {item.get('reason', '')}"
+            for item in resume.get('portfolio_suggestions', [])
+        ])
+        draw_bullet_card("Internship Suggestions", [
+            f"{item.get('internship_type', '')}: {item.get('reason', '')}"
+            for item in resume.get('internship_suggestions', [])
+        ])
+    else:
+        not_generated_note("AI Resume Suggestions", f"Get AI Resume Suggestions for {role_name}")
+
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+    pdf.output(temp_file.name)
+    temp_file.close()
+
+    return temp_file.name
+
 
 # ==================== COMPLETE STREAM DETAILS DATABASE ====================
 # This covers ALL possible streams from both school and college JSON files
@@ -2773,13 +4276,30 @@ def generate_ai_prompt(student_details, questionnaire_responses, personality_res
     else:
         interest_lines = "No questionnaire responses provided."
 
+    # ---- FIXED STREAM LIST: recommendations must come from the app's own
+    # general career-stream categories (loaded from school_questions.json /
+    # college_questions.json), never AI-invented hybrid/niche titles like
+    # "Digital Marketing & Communications". `scored_categories` above
+    # already holds every general stream defined for this student's
+    # questionnaire (typically 16), ranked by interest score - reuse the
+    # FULL list (not just the top 6) so Gemini knows the complete valid
+    # option space, even for streams that scored lower. ----
+    allowed_streams = [cat_name for cat_name, _ in scored_categories]
+    if allowed_streams:
+        allowed_streams_lines = "\n".join(f"- {name}" for name in allowed_streams)
+        stream_constraint = f"""ALLOWED STREAMS (choose your top 3 ONLY from this exact list - do not invent, combine, rename, or rephrase any stream; copy the stream_name text exactly as written below):
+{allowed_streams_lines}"""
+    else:
+        # Defensive fallback - should not normally happen, since
+        # categories_data is always populated before this page is reached.
+        stream_constraint = "No fixed stream list is available for this student - recommend general, broad career streams only."
+
     # ---- OPTIMIZATION 3: compact personality summary instead of raw Q&A ----
-    # Same idea: `analyze_personality_pathway()` already reduces the raw
-    # personality answers into a dominant learning style, a match
-    # percentage, and a short list of associated traits/strengths. That
-    # IS the "Top Personality Traits" summary the model needs - sending
-    # all raw answers as well would just duplicate information the
-    # summary already encodes.
+    # The learning-style personality quiz has been replaced by the RIASEC
+    # assessment, so personality_pathway is always None now and this
+    # simply falls back to "Not taken (optional)." below. Left in place
+    # (rather than removed) since other generate_ai_* prompt functions
+    # still reference this same session_state key defensively.
     pathway = st.session_state.get('personality_pathway')
     if pathway:
         traits = "\n".join(f"- {t}" for t in pathway.get('strengths', [])[:4])
@@ -2795,11 +4315,13 @@ def generate_ai_prompt(student_details, questionnaire_responses, personality_res
     # The original spelled out similar guidance (adapt response, language
     # level, scope) across several sentences per user_type. Reduced to a
     # single line carrying only the information that actually changes
-    # model behaviour.
+    # model behaviour. NOTE: this now only controls the LANGUAGE/tone of
+    # the "reason" text - the stream_name itself is always constrained to
+    # the ALLOWED STREAMS list above, for both school and college students.
     if user_type == 'school':
-        depth_instruction = "School student: use simple language; recommend broad streams (Science/Commerce/Arts/Vocational), not job titles."
+        depth_instruction = "School student: use simple, jargon-free language in the reason text."
     else:
-        depth_instruction = "College student: use professional language; recommend specific industry roles/specializations, not skills or job-market detail."
+        depth_instruction = "College student: use professional, industry-appropriate language in the reason text."
 
     # ---- OPTIMIZATION 5: removed duplicated/repeated instructions ----
     # The original stated "JSON only, no markdown/preamble" twice,
@@ -2808,27 +4330,31 @@ def generate_ai_prompt(student_details, questionnaire_responses, personality_res
     # (deferred follow-up calls) that Gemini has no use for. All of that
     # is removed - the single OUTPUT FORMAT line below is now the only
     # statement of what to return.
-    prompt = f"""You are an expert career counsellor AI. Recommend the TOP 3 career streams for this student, ranked strongest to weakest match, based on the summary below (generate fresh, specific recommendations - do not use a manual database).
+    prompt = f"""You are an expert career counsellor AI. Recommend the TOP 3 career streams for this student, ranked strongest to weakest match, based on the summary below.
 
 STUDENT: {name}, age {age}, {education_level} ({grade_label} {grade})
 
 INTEREST SCORES (0-100)
 {interest_lines}
 
+{stream_constraint}
+
 PERSONALITY/LEARNING STYLE
 {personality_summary}
 
 {depth_instruction}
 
-Return ONLY this JSON (no markdown, no commentary), exactly 3 items, each reason <=15 words, single-line strings:
+Return ONLY this JSON (no markdown, no commentary), exactly 3 items, each reason <=15 words, single-line strings, stream_name copied exactly from the ALLOWED STREAMS list above:
 {{"recommendations": [{{"stream_name": "string", "match_percentage": 60-99, "reason": "string"}}]}}"""
 
     return prompt
 
 
+
+
 # ==================== JSON RESPONSE PARSING HELPER ====================
 
-def _parse_top3_json(data):
+def _parse_top3_json(data, allowed_streams=None):
     """
     Validate that an already-parsed JSON value (dict or list, as returned
     by generate_validated_json / _safe_json_loads) matches the EXPECTED
@@ -2849,6 +4375,14 @@ def _parse_top3_json(data):
     add are simply ignored - this validator only enforces the 3 fields it
     actually needs.
 
+    If `allowed_streams` is given (the fixed list of general stream names
+    from categories_data), every returned stream_name is snapped to the
+    matching entry in that list (case-insensitive exact match, falling
+    back to a close-match lookup for minor casing/whitespace drift) so the
+    UI never displays an AI-invented stream name that isn't one of the
+    app's own general streams. Entries that can't be matched to any
+    allowed stream are dropped rather than shown as-is.
+
     NOTE: this function does NOT call json.loads() or touch raw text at
     all - by the time data reaches here it has already been safely parsed
     upstream. It only checks/normalises *shape*.
@@ -2856,15 +4390,23 @@ def _parse_top3_json(data):
     Raises:
         ValueError: if `recommendations` is missing, not a list, empty, or
             does not contain at least 3 entries with all required fields
-            present and non-empty. This is treated as an "incomplete
-            response" and triggers a regeneration.
+            present and non-empty (after stream-name matching, when
+            `allowed_streams` is provided). This is treated as an
+            "incomplete response" and triggers a regeneration.
     """
     recommendations = data.get("recommendations") if isinstance(data, dict) else data
 
     if not isinstance(recommendations, list) or len(recommendations) == 0:
         raise ValueError("Gemini response did not contain a recommendations list.")
 
+    # Build a case-insensitive lookup so a minor casing/whitespace
+    # difference from Gemini still snaps to the canonical stream name.
+    allowed_lookup = {}
+    if allowed_streams:
+        allowed_lookup = {name.strip().lower(): name for name in allowed_streams}
+
     parsed = []
+    seen_streams = set()
     for item in recommendations:
         if not isinstance(item, dict):
             continue
@@ -2885,6 +4427,25 @@ def _parse_top3_json(data):
         if not stream_name or not reason:
             continue
 
+        if allowed_lookup:
+            canonical = allowed_lookup.get(stream_name.strip().lower())
+            if canonical is None:
+                # Try a fuzzy match for minor drift (e.g. trailing
+                # punctuation) before giving up on this entry entirely.
+                close = difflib.get_close_matches(
+                    stream_name.strip().lower(), allowed_lookup.keys(), n=1, cutoff=0.8
+                )
+                canonical = allowed_lookup.get(close[0]) if close else None
+            if canonical is None:
+                # Not one of the app's general streams - drop it rather
+                # than show an AI-invented stream name.
+                continue
+            stream_name = canonical
+
+        if stream_name in seen_streams:
+            continue
+        seen_streams.add(stream_name)
+
         parsed.append({
             "stream_name": stream_name,
             "match_percentage": match_percentage,
@@ -2894,8 +4455,9 @@ def _parse_top3_json(data):
     if len(parsed) < 3:
         raise ValueError(
             f"Incomplete recommendations response: expected 3 complete "
-            f"entries (stream_name + match_percentage + reason), got "
-            f"{len(parsed)} valid out of {len(recommendations)} returned."
+            f"entries (stream_name + match_percentage + reason) matching "
+            f"the allowed stream list, got {len(parsed)} valid out of "
+            f"{len(recommendations)} returned."
         )
 
     return parsed[:3]
@@ -2932,6 +4494,20 @@ def generate_ai_recommendation(student_details, questionnaire_responses, persona
     """
     prompt = generate_ai_prompt(student_details, questionnaire_responses, personality_responses, user_type)
 
+    # Same fixed general-stream list used inside generate_ai_prompt() to
+    # build the ALLOWED STREAMS instruction - reused here so the validator
+    # can snap/reject stream names against the exact same list, keeping
+    # the prompt and the validation in sync.
+    categories_data = st.session_state.get('categories_data') or {}
+    allowed_streams = [
+        cat.get('name') or cat.get('category_name') or cat_id
+        for cat_id, cat in categories_data.items()
+        if cat.get('question_count', 0) > 0
+    ]
+
+    def _validator(data):
+        return _parse_top3_json(data, allowed_streams=allowed_streams)
+
     try:
         model = get_gemini_client()
     except GeminiConfigError as e:
@@ -2966,7 +4542,7 @@ def generate_ai_recommendation(student_details, questionnaire_responses, persona
         data, response_text = generate_validated_json(
             model, prompt, max_output_tokens=512,
             label="generate_ai_recommendation",
-            validator=_parse_top3_json,
+            validator=_validator,
         )
 
         # Always store the raw response for debugging - not displayed in
@@ -3756,6 +5332,140 @@ def generate_ai_role_detail(student_details, role_name, stream, user_type):
             "status": "error",
             "message": "Something went wrong while generating this role breakdown. Please try again later.",
         }
+
+
+def generate_top10_related_roles_prompt(student_details, stream, user_type):
+    """
+    Build the prompt for the "Top 10 Related Career Roles" overview used in
+    the AI Career Report PDF when the student has not yet clicked into a
+    specific career role in this session. Entirely AI-generated - no
+    hardcoded/static role database of any kind.
+    """
+    name = student_details.get('name', 'The student')
+    education_level = "School Student" if user_type == 'school' else "College Student"
+
+    if user_type == 'school':
+        depth_instruction = (
+            "This is a SCHOOL STUDENT: use SIMPLE, beginner-friendly language "
+            "when describing each role."
+        )
+    else:
+        depth_instruction = (
+            "This is a COLLEGE STUDENT: use PROFESSIONAL, industry-appropriate "
+            "language when describing each role."
+        )
+
+    prompt = f"""You are an expert career counsellor AI. The student below has been
+recommended the career stream "{stream}" but has not yet explored a
+specific role within it.
+
+STUDENT INFORMATION
+- Name: {name}
+- Education Level: {education_level}
+
+{depth_instruction}
+
+Do NOT use any pre-existing/manual role database - generate every field
+freshly and specifically for the Indian job market.
+
+Generate EXACTLY 10 specific, distinct job-title roles within/adjacent to
+the stream "{stream}" that this student could pursue. For EACH role,
+generate:
+1. role_name - a specific job title (not a subfield or category).
+2. short_description - a 1-2 sentence description of what someone in this role does.
+3. salary_range_india - the typical salary range in India (entry to experienced) as a string, in INR (e.g. lakhs per annum).
+4. future_scope - a short 1-2 sentence forecast of future demand/growth for this role.
+5. required_skills - a list of 4 to 8 key skills (technical and/or soft) required for this role.
+
+OUTPUT FORMAT - respond with ONLY valid JSON, no markdown fences, no preamble:
+
+{{
+  "related_roles": [
+    {{
+      "role_name": "string",
+      "short_description": "string",
+      "salary_range_india": "string",
+      "future_scope": "string",
+      "required_skills": ["string", "..."]
+    }}
+  ]
+}}
+
+The "related_roles" array must contain EXACTLY 10 items. Every string value
+must be a single line with no literal line breaks (use spaces instead).
+Output JSON only."""
+
+    return prompt
+
+
+def _validate_top10_related_roles_schema(data):
+    """
+    Schema validator for the Top 10 Related Career Roles response, passed
+    into generate_validated_json so a response missing roles or required
+    per-role fields triggers the same bounded single automatic retry as a
+    JSON parse failure.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("Top 10 related roles response is not a JSON object.")
+    roles = data.get("related_roles")
+    if not isinstance(roles, list) or not roles:
+        raise ValueError("Top 10 related roles response missing a non-empty related_roles list.")
+
+    required_keys = ["role_name", "short_description", "salary_range_india", "future_scope", "required_skills"]
+    cleaned = []
+    for role in roles:
+        if not isinstance(role, dict) or not str(role.get("role_name", "")).strip():
+            continue
+        if not all(k in role for k in required_keys):
+            continue
+        cleaned.append(role)
+
+    if not cleaned:
+        raise ValueError("Top 10 related roles response has no valid role entries.")
+
+    data["related_roles"] = cleaned[:10]
+    return data
+
+
+def generate_top10_related_roles(student_details, stream, user_type):
+    """
+    Call Gemini to produce the Top 10 Related Career Roles overview for
+    the AI Career Report PDF, and cache the parsed result in
+    st.session_state.ai_top10_related_roles (keyed by stream, so it is
+    only regenerated when the recommended stream changes within a
+    session - repeated PDF downloads reuse the cached result).
+
+    RELIABILITY: uses generate_validated_json, which retries the Gemini
+    call exactly ONCE if JSON parsing OR schema validation fails. On any
+    failure this returns None and the caller falls back to a simpler
+    name-only list so the PDF is never blocked or broken by this being
+    unavailable.
+    """
+    cache_key = f"ai_top10_related_roles::{stream}::{user_type}"
+    cached = st.session_state.get('ai_top10_related_roles')
+    if isinstance(cached, dict) and cached.get('_cache_key') == cache_key:
+        return cached.get('related_roles')
+
+    prompt = generate_top10_related_roles_prompt(student_details, stream, user_type)
+
+    try:
+        model = get_gemini_client()
+    except GeminiConfigError:
+        return None
+
+    try:
+        data, _response_text = generate_validated_json(
+            model, prompt, max_output_tokens=2560,
+            label="generate_top10_related_roles",
+            validator=_validate_top10_related_roles_schema,
+        )
+        if data is None:
+            return None
+        roles = data.get("related_roles", [])
+        st.session_state.ai_top10_related_roles = {"_cache_key": cache_key, "related_roles": roles}
+        return roles
+    except Exception:
+        return None
 
 
 def generate_learning_roadmap_prompt(student_details, questionnaire_responses, personality_pathway, career_name, user_type):
@@ -5336,8 +7046,8 @@ def show_assessment():
                     st.session_state.categories_data, st.session_state.recommended_categories = calculate_results(
                         st.session_state.responses, st.session_state.questions_list, st.session_state.categories_data
                     )
-                    # Go to personality choice (OPTIONAL assessment)
-                    st.session_state.page = 'personality_choice'
+                    # Go to RIASEC assessment choice (OPTIONAL assessment)
+                    st.session_state.page = 'riasec_choice'
                     st.rerun()
             else:
                 unanswered = total_questions - answered_count
@@ -5346,7 +7056,7 @@ def show_assessment():
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-def show_personality_choice():
+def show_riasec_choice():
     show_header()
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     
@@ -5357,7 +7067,7 @@ def show_personality_choice():
     </div>
     ''', unsafe_allow_html=True)
     
-    st.markdown('<h1 class="welcome-heading" style="font-size:1.8rem;">🎭 Optional: Personality Assessment</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="welcome-heading" style="font-size:1.8rem;">🧭 Optional: RIASEC Career Assessment</h1>', unsafe_allow_html=True)
     st.markdown('<p class="welcome-subheading">⚠️ <strong>Note: Your career assessment is already complete. This is optional.</strong></p>', unsafe_allow_html=True)
     
     # Add Back button to go to career assessment
@@ -5372,16 +7082,17 @@ def show_personality_choice():
     # ============ DETAILS SHOWN DIRECTLY (NO EXPANDER) ============
     st.markdown("""
     <div style="background: #E8F5E9; border-radius: 16px; padding: 1rem; margin: 1rem 0; border-left: 5px solid #1565C0;">
-        <strong style="color: #1565C0; font-size: 1.1rem;">🔍 What does the personality assessment include?</strong><br><br>
-        The personality assessment helps identify your learning style by evaluating:
+        <strong style="color: #1565C0; font-size: 1.1rem;">🔍 What does the RIASEC assessment include?</strong><br><br>
+        The AI-powered RIASEC (Holland Code) assessment identifies your career personality type by evaluating your interest across six dimensions:
         <ul>
-            <li><strong>Learning Preferences</strong>: How you learn best (visual, auditory, reading/writing, kinesthetic)</li>
-            <li><strong>Work Style</strong>: Whether you prefer independent work, teamwork, or a mix</li>
-            <li><strong>Problem-Solving Approach</strong>: How you tackle challenges and new problems</li>
-            <li><strong>Communication Style</strong>: Your preferred way of expressing ideas</li>
-            <li><strong>Study Habits</strong>: Effective learning strategies for your personality type</li>
+            <li><strong>Realistic</strong>: Hands-on, mechanical, and practical activities</li>
+            <li><strong>Investigative</strong>: Analytical, scientific, and research-driven thinking</li>
+            <li><strong>Artistic</strong>: Creative, expressive, and original work</li>
+            <li><strong>Social</strong>: Helping, teaching, and working with people</li>
+            <li><strong>Enterprising</strong>: Leading, persuading, and business-minded thinking</li>
+            <li><strong>Conventional</strong>: Organised, detail-oriented, and structured work</li>
         </ul>
-        Based on your responses, we'll provide personalized study tips and career suggestions!
+        Based on your responses, our AI will generate your career personality type, top-matching careers, strengths, learning style, and suitable work environment - personalized just for you!
     </div>
     """, unsafe_allow_html=True)
     
@@ -5396,31 +7107,34 @@ def show_personality_choice():
         st.markdown('''
         <div class="user-card personality-choice-card">
             <div>
-                <div class="user-icon">📝</div>
-                <h3>Take Personality Assessment</h3>
-                <p>Complete the personality assessment to discover your learning style and get personalized study tips.</p>
+                <div class="user-icon">🧭</div>
+                <h3>Take RIASEC Assessment</h3>
+                <p>Take our AI-powered RIASEC (Holland Code) assessment to discover your career personality type and best-matching careers.</p>
                 <p style="margin-top:10px; font-size:0.8rem; color:#1E88E5;">⏱️ Takes about 10-15 minutes</p>
-                <p style="font-size:0.8rem; color:#1E88E5;">📊 25 questions</p>
-                <p style="margin-top:10px; font-size:0.8rem; color:#1565C0;">✨ Get personalized insights</p>
+                <p style="font-size:0.8rem; color:#1E88E5;">📊 30 questions</p>
+                <p style="margin-top:10px; font-size:0.8rem; color:#1565C0;">🤖 Fully AI-generated results</p>
             </div>
         </div>
         ''', unsafe_allow_html=True)
-        
-        if st.button("✅ Yes, Take Personality Assessment", key="take_personality_btn", use_container_width=True):
-            st.session_state.personality_questions = get_personality_questions(st.session_state.user_type)
-            st.session_state.personality_responses = {}
-            st.session_state.personality_current_page = 0
-            st.session_state.personality_completed = False
-            st.session_state.page = 'personality_assessment'
+
+        if st.button("🚀 Take RIASEC Assessment", key="take_riasec_btn", use_container_width=True):
+            st.session_state.riasec_questions = get_riasec_questions(st.session_state.user_type)
+            st.session_state.riasec_responses = {}
+            st.session_state.riasec_current_page = 0
+            st.session_state.riasec_completed = False
+            st.session_state.riasec_scores = None
+            st.session_state.riasec_result = None
+            st.session_state.riasec_result_fingerprint = None
+            st.session_state.page = 'riasec_assessment'
             st.rerun()
-    
+
     with col2:
         st.markdown('''
         <div class="user-card personality-choice-card">
             <div>
                 <div class="user-icon">⏭️</div>
-                <h3>Skip Personality Assessment</h3>
-                <p>Skip the personality test and go directly to your career stream comparison.</p>
+                <h3>Skip RIASEC Assessment</h3>
+                <p>Skip the RIASEC test and go directly to your career stream comparison.</p>
                 <p style="margin-top:10px; font-size:0.8rem; color:#1E88E5;">⚡ Continue directly</p>
                 <p style="font-size:0.8rem; color:#1E88E5;">📊 View your career recommendations</p>
                 <p style="margin-top:10px; font-size:0.8rem; color:#1565C0;">🎯 Your career assessment results are ready!</p>
@@ -5428,40 +7142,45 @@ def show_personality_choice():
         </div>
         ''', unsafe_allow_html=True)
         
-        if st.button("⏭️ Skip Personality Assessment", key="skip_personality_btn", use_container_width=True):
+        if st.button("⏭️ Skip RIASEC Assessment", key="skip_riasec_btn", use_container_width=True):
             st.session_state.page = 'recommendation'
             st.rerun()
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-def show_personality_assessment():
-    # Add Home button only at the top
+def show_riasec_assessment():
+    """
+    Paginated 30-question RIASEC Likert questionnaire, mirroring the
+    structure of the previous learning-style assessment page. On submit,
+    only the raw per-dimension scores are computed locally
+    (calculate_riasec_scores) - the actual RIASEC result (type, careers,
+    strengths, etc.) is generated by Gemini on the results page, never here.
+    """
     col_home, col_spacer = st.columns([1, 11])
     with col_home:
-        if st.button("🏠 Home", key="personality_home", use_container_width=True):
-            # Reset to welcome page
+        if st.button("🏠 Home", key="riasec_home", use_container_width=True):
             for key in list(st.session_state.keys()):
                 if key not in ['page']:
                     del st.session_state[key]
             st.session_state.page = 'welcome'
             st.rerun()
-    
+
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    
-    if not st.session_state.personality_questions:
-        st.session_state.personality_questions = get_personality_questions(st.session_state.user_type)
-    
+
+    if not st.session_state.riasec_questions:
+        st.session_state.riasec_questions = get_riasec_questions(st.session_state.user_type)
+
     questions_per_page = 10
-    total_questions = len(st.session_state.personality_questions)
+    total_questions = len(st.session_state.riasec_questions)
     total_pages = (total_questions + questions_per_page - 1) // questions_per_page
-    current_page = st.session_state.personality_current_page
+    current_page = st.session_state.riasec_current_page
     start_idx = current_page * questions_per_page
     end_idx = min(start_idx + questions_per_page, total_questions)
-    page_questions = st.session_state.personality_questions[start_idx:end_idx]
-    
-    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.5rem;">🧠 Personality Assessment</h1>', unsafe_allow_html=True)
-    st.markdown(f'<p class="sub-message">Page {current_page + 1} of {total_pages} • Discover your learning style</p>', unsafe_allow_html=True)
-    
+    page_questions = st.session_state.riasec_questions[start_idx:end_idx]
+
+    st.markdown('<h1 class="welcome-heading" style="font-size:1.5rem;">🧭 RIASEC Career Assessment</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p class="sub-message">Page {current_page + 1} of {total_pages} • How much would you enjoy each activity?</p>', unsafe_allow_html=True)
+
     for i, q in enumerate(page_questions):
         q_index = start_idx + i
         st.markdown(f"""
@@ -5469,125 +7188,237 @@ def show_personality_assessment():
             <div class="question-text">{q_index + 1}. {q['text']}</div>
         </div>
         """, unsafe_allow_html=True)
-        
-        # Get current value from session state if exists
-        current_value = st.session_state.personality_responses.get(q['id'], None)
-        
-        # Radio button with NO default selection (index=None)
+
+        current_value = st.session_state.riasec_responses.get(q['id'], None)
+
         answer = st.radio(
             "Select your answer:",
             options=q['options'],
             horizontal=True,
-            key=f"personality_q_{q['id']}_{q_index}",
-            index=None  # This removes the default pointer - no option pre-selected
+            key=f"riasec_q_{q['id']}_{q_index}",
+            index=None
         )
-        
-        # Only store if user made a selection
+
         if answer is not None:
-            st.session_state.personality_responses[q['id']] = answer
-        
+            st.session_state.riasec_responses[q['id']] = answer
+
         st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Calculate progress based on answered questions
-    answered_count = sum(1 for q in st.session_state.personality_questions[:end_idx] 
-                         if st.session_state.personality_responses.get(q['id']) is not None)
+
+    answered_count = sum(1 for q in st.session_state.riasec_questions[:end_idx]
+                         if st.session_state.riasec_responses.get(q['id']) is not None)
     progress = answered_count / total_questions if total_questions > 0 else 0
     st.progress(progress)
     st.markdown(f'<p class="progress-text">📊 Progress: {answered_count}/{total_questions} questions answered ({int(progress*100)}%)</p>', unsafe_allow_html=True)
-    
-    # Navigation buttons
+
     col1, col2, col3 = st.columns([1, 2, 1])
     with col1:
         if current_page > 0:
-            if st.button("← Previous Page", use_container_width=True):
-                st.session_state.personality_current_page -= 1
+            if st.button("← Previous Page", key="riasec_prev_page", use_container_width=True):
+                st.session_state.riasec_current_page -= 1
                 st.rerun()
-    
+
     with col3:
-        # Check if all questions on current page are answered
         current_page_answered = all(
-            st.session_state.personality_responses.get(q['id']) is not None 
+            st.session_state.riasec_responses.get(q['id']) is not None
             for q in page_questions
         )
-        
+
         if end_idx < total_questions:
             if current_page_answered:
-                if st.button("Next Page →", type="primary", use_container_width=True):
-                    st.session_state.personality_current_page += 1
+                if st.button("Next Page →", key="riasec_next_page", type="primary", use_container_width=True):
+                    st.session_state.riasec_current_page += 1
                     st.rerun()
             else:
-                st.button("Next Page →", type="primary", use_container_width=True, disabled=True)
+                st.button("Next Page →", key="riasec_next_page_disabled", use_container_width=True, disabled=True)
                 st.warning(f"⚠️ Please answer all {len(page_questions)} questions on this page")
         else:
-            # Last page - check if all questions are answered
             all_answered = all(
-                st.session_state.personality_responses.get(q['id']) is not None 
-                for q in st.session_state.personality_questions
+                st.session_state.riasec_responses.get(q['id']) is not None
+                for q in st.session_state.riasec_questions
             )
             if all_answered:
-                if st.button("Submit & See Results", type="primary", use_container_width=True):
-                    # Filter out None values before analyzing
-                    valid_responses = {k: v for k, v in st.session_state.personality_responses.items() if v is not None}
-                    st.session_state.personality_pathway = analyze_personality_pathway(
-                        valid_responses, st.session_state.user_type
+                if st.button("Submit & See Results", key="riasec_submit", type="primary", use_container_width=True):
+                    valid_responses = {k: v for k, v in st.session_state.riasec_responses.items() if v is not None}
+                    st.session_state.riasec_scores = calculate_riasec_scores(
+                        valid_responses, st.session_state.riasec_questions
                     )
-                    st.session_state.personality_completed = True
-                    st.session_state.page = 'personality_result'
+                    st.session_state.riasec_completed = True
+                    st.session_state.riasec_result = None
+                    st.session_state.riasec_result_fingerprint = None
+                    st.session_state.page = 'riasec_result'
                     st.rerun()
             else:
                 unanswered = total_questions - answered_count
-                st.button("Submit & See Results", type="primary", use_container_width=True, disabled=True)
+                st.button("Submit & See Results", key="riasec_submit_disabled", type="primary", use_container_width=True, disabled=True)
                 st.warning(f"⚠️ Please answer {unanswered} more question(s) before submitting")
-    
-    # Skip button with full width
+
     st.markdown("---")
     col_skip1, col_skip2, col_skip3 = st.columns([1, 2, 1])
     with col_skip2:
-        if st.button("⏭️ Skip for Now", use_container_width=True):
-            st.session_state.personality_skipped = True
+        if st.button("⏭️ Skip for Now", key="riasec_skip", use_container_width=True):
             st.session_state.page = 'recommendation'
             st.rerun()
-    
+
     st.markdown('</div>', unsafe_allow_html=True)
 
-def show_personality_result():
+
+def show_riasec_result():
+    """
+    Calls Gemini (cached by response-fingerprint, same policy as every
+    other AI content in this app) to generate the full RIASEC result, then
+    renders: RIASEC code + personality type, description, top matching
+    careers with match percentages, strengths, learning style, and
+    suitable work environment - all AI-generated, nothing hardcoded.
+    """
     show_header()
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    
-    if st.session_state.personality_pathway:
-        pathway = st.session_state.personality_pathway
-        
+
+    st.markdown('<h1 class="welcome-heading" style="font-size:1.8rem;">🧭 Your RIASEC Career Assessment</h1>', unsafe_allow_html=True)
+
+    if not st.session_state.riasec_scores:
+        st.markdown("""
+        <div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">
+            <p>⚠️ No RIASEC responses found yet. Please take the assessment first.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("🧭 Take RIASEC Assessment", use_container_width=True):
+            st.session_state.riasec_questions = get_riasec_questions(st.session_state.user_type)
+            st.session_state.riasec_responses = {}
+            st.session_state.riasec_current_page = 0
+            st.session_state.page = 'riasec_assessment'
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        return
+
+    student_details = {
+        'name': st.session_state.student_name,
+        'age': st.session_state.student_age,
+        'institution': st.session_state.student_institution,
+        'grade': st.session_state.student_grade,
+    }
+
+    # Cache by fingerprint: only call Gemini again if the RIASEC answers or
+    # user_type actually changed since the last call.
+    current_fp = make_response_fingerprint(
+        st.session_state.riasec_responses,
+        st.session_state.user_type,
+    )
+    if st.session_state.riasec_result is None or st.session_state.riasec_result_fingerprint != current_fp:
+        with st.spinner("Analysing your RIASEC responses with AI..."):
+            result = generate_ai_riasec_assessment(
+                student_details,
+                st.session_state.riasec_scores,
+                st.session_state.user_type,
+            )
+        st.session_state.riasec_result_status = result
+        st.session_state.riasec_result_fingerprint = current_fp
+    else:
+        result = st.session_state.riasec_result_status
+
+    riasec_result = st.session_state.riasec_result
+
+    if not riasec_result:
+        st.markdown(f"""
+        <div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">
+            <p>⚠️ {(result or {}).get('message', 'Your RIASEC assessment is not available right now.')}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.session_state.get('riasec_result_error'):
+            with st.expander("Technical details (for debugging)"):
+                st.code(st.session_state.riasec_result_error)
+        if st.button("🔁 Retry AI Analysis", key="riasec_retry", use_container_width=True):
+            st.session_state.riasec_result = None
+            st.session_state.riasec_result_fingerprint = None
+            st.rerun()
+    else:
         st.markdown(f"""
         <div class="stream-detail-card">
             <div style="text-align:center;">
-                <div style="font-size:3rem;">{pathway['icon']}</div>
-                <h1 style="color:#D35400; margin:0.5rem 0;">{pathway['title']}</h1>
-                <div style="background:#FFF3E0; display:inline-block; padding:0.3rem 1rem; border-radius:20px; margin:0.5rem 0;">
-                    {pathway['match_percentage']}% Match
-                </div>
+                <div style="font-size:2rem; opacity:0.85; font-weight:600;">RIASEC Code: {riasec_result.get('riasec_code', '')}</div>
+                <h1 style="color:#D35400; margin:0.5rem 0;">{riasec_result.get('personality_type', '')}</h1>
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
-        st.markdown(f"<p>{pathway['description']}</p>", unsafe_allow_html=True)
-        
-        st.markdown("**✨ Your Key Strengths:**")
-        for strength in pathway.get('strengths', []):
+
+        st.markdown(f"<p>{riasec_result.get('description', '')}</p>", unsafe_allow_html=True)
+
+        # ---- Dimension score bars (raw scores, from calculate_riasec_scores) ----
+        st.markdown("**📊 Your RIASEC Dimension Scores**")
+        for cat, pct in st.session_state.riasec_scores['ranked']:
+            st.markdown(f"""
+            <div style="margin-bottom:0.6rem;">
+                <div style="display:flex; justify-content:space-between; font-size:0.9rem;">
+                    <span>{RIASEC_DIMENSIONS[cat]}</span><span>{pct}%</span>
+                </div>
+                <div class="score-bar">
+                    <div class="score-fill" style="width:{pct}%;"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ---- Top Matching Careers ----
+        st.markdown("**🎯 Top Matching Careers**")
+        careers = riasec_result.get('top_matching_careers', [])
+        for row_start in range(0, len(careers), 2):
+            row_careers = careers[row_start:row_start + 2]
+            row_cols = st.columns(len(row_careers))
+            for j, career in enumerate(row_careers):
+                with row_cols[j]:
+                    st.markdown(f"""
+                    <div class="stream-card-good rec-card">
+                        <h3 style="margin:0.4rem 0;">{career['career_name']}</h3>
+                        <div class="score-bar">
+                            <div class="score-fill" style="width:{career['match_percentage']}%;"></div>
+                        </div>
+                        <div style="font-size:1.1rem; font-weight:700; margin:0.4rem 0;">{career['match_percentage']}% Match</div>
+                        <p style="font-size:0.85rem; line-height:1.4; text-align:left;">{career.get('why_it_fits', '')}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+
+        # ---- Strengths ----
+        st.markdown("**✨ Your Key Strengths**")
+        for strength in riasec_result.get('strengths', []):
             st.markdown(f"- {strength}")
-        
-        st.markdown("<hr>", unsafe_allow_html=True)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("← Back to Personality Test", use_container_width=True):
-                st.session_state.page = 'personality_assessment'
-                st.rerun()
-        with col2:
-            if st.button("Continue →", type="primary", use_container_width=True):
-                st.session_state.page = 'recommendation'
-                st.rerun()
-    
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ---- Learning Style & Work Environment ----
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.markdown('<div class="question-card" style="text-align:left; height:100%;">', unsafe_allow_html=True)
+            st.markdown("**📚 Learning Style**")
+            st.markdown(riasec_result.get('learning_style', ''))
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col_b:
+            st.markdown('<div class="question-card" style="text-align:left; height:100%;">', unsafe_allow_html=True)
+            st.markdown("**🏢 Suitable Work Environment**")
+            st.markdown(riasec_result.get('suitable_work_environment', ''))
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("← Retake RIASEC Assessment", key="riasec_retake", use_container_width=True):
+            st.session_state.riasec_questions = get_riasec_questions(st.session_state.user_type)
+            st.session_state.riasec_responses = {}
+            st.session_state.riasec_current_page = 0
+            st.session_state.riasec_completed = False
+            st.session_state.riasec_scores = None
+            st.session_state.riasec_result = None
+            st.session_state.riasec_result_fingerprint = None
+            st.session_state.page = 'riasec_assessment'
+            st.rerun()
+    with col2:
+        if st.button("Continue →", key="riasec_continue", type="primary", use_container_width=True):
+            st.session_state.page = 'recommendation'
+            st.rerun()
+
     st.markdown('</div>', unsafe_allow_html=True)
+
 
 # Report Page
 # ==================== AI RECOMMENDATION PAGE (PLACEHOLDER) ====================
@@ -5989,6 +7820,26 @@ def show_role_detail():
             st.session_state.resume_suggestions_return_page = 'role_detail'
             st.session_state.page = 'resume_suggestions'
             st.rerun()
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("📥 Download This as PDF (Career Detail + Roadmap + Skill Gap + Resume)", use_container_width=True):
+            with st.spinner("Generating your PDF..."):
+                try:
+                    pdf_path = generate_role_detail_pdf(role_name, stream['stream_name'])
+                    with open(pdf_path, "rb") as pdf_file:
+                        pdf_data = pdf_file.read()
+                    safe_role_name = "".join(c if c.isalnum() else "_" for c in role_name)
+                    st.download_button(
+                        label="💾 Save PDF",
+                        data=pdf_data,
+                        file_name=f"{st.session_state.student_name}_{safe_role_name}_career_detail.pdf",
+                        mime="application/pdf",
+                        key="download_role_detail_pdf"
+                    )
+                    os.unlink(pdf_path)
+                    st.success("✅ PDF generated successfully! Sections you haven't opened yet (Roadmap/Skill Gap/Resume) will be noted as not yet generated - visit them first to include their content.")
+                except Exception as e:
+                    st.error(f"Error generating PDF: {str(e)}")
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
@@ -6986,12 +8837,12 @@ def main():
         show_load_assessment()
     elif st.session_state.page == 'assessment':
         show_assessment()
-    elif st.session_state.page == 'personality_choice':
-        show_personality_choice()
-    elif st.session_state.page == 'personality_assessment':
-        show_personality_assessment()
-    elif st.session_state.page == 'personality_result':
-        show_personality_result()
+    elif st.session_state.page == 'riasec_choice':
+        show_riasec_choice()
+    elif st.session_state.page == 'riasec_assessment':
+        show_riasec_assessment()
+    elif st.session_state.page == 'riasec_result':
+        show_riasec_result()
     elif st.session_state.page == 'recommendation':
         show_recommendation()
     elif st.session_state.page == 'ai_analysis':
