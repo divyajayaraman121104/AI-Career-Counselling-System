@@ -1,0 +1,795 @@
+{
+  "meta": {
+    "assessment_title": "RIASEC Career Assessment",
+    "assessment_title_optional": "Optional: RIASEC Career Assessment",
+    "note_optional": "Note: Your career assessment is already complete. This is optional.",
+    "intro_heading": "What does the RIASEC assessment include?",
+    "intro_description": "The AI-powered RIASEC (Holland Code) assessment identifies your career personality type by evaluating your interest across six dimensions:",
+    "intro_outro": "Based on your responses, our AI will generate your career personality type, top-matching careers, strengths, learning style, and suitable work environment - personalized just for you!",
+    "choose_option_prompt": "Choose an option below:",
+    "take_assessment_title": "Take RIASEC Assessment",
+    "take_assessment_description": "Take our AI-powered RIASEC (Holland Code) assessment to discover your career personality type and best-matching careers.",
+    "take_assessment_time": "Takes about 10-15 minutes",
+    "take_assessment_question_count": "30 questions",
+    "take_assessment_ai_note": "Fully AI-generated results",
+    "skip_assessment_title": "Skip RIASEC Assessment",
+    "skip_assessment_description": "Skip the RIASEC test and go directly to your career stream comparison.",
+    "skip_continue_note": "Continue directly",
+    "skip_view_note": "View your career recommendations",
+    "skip_ready_note": "Your career assessment results are ready!",
+    "quiz_page_instruction": "How much would you enjoy each activity?",
+    "quiz_page_label": "Page",
+    "quiz_page_of": "of",
+    "quiz_select_answer_label": "Select an answer",
+    "progress_label": "Progress:",
+    "progress_questions_answered": "questions answered"
+  },
+  "dimensions": {
+    "R": {
+      "name": "Realistic",
+      "description": "Hands-on, mechanical, and practical activities"
+    },
+    "I": {
+      "name": "Investigative",
+      "description": "Analytical, scientific, and research-driven thinking"
+    },
+    "A": {
+      "name": "Artistic",
+      "description": "Creative, expressive, and original work"
+    },
+    "S": {
+      "name": "Social",
+      "description": "Helping, teaching, and working with people"
+    },
+    "E": {
+      "name": "Enterprising",
+      "description": "Leading, persuading, and business-minded thinking"
+    },
+    "C": {
+      "name": "Conventional",
+      "description": "Organised, detail-oriented, and structured work"
+    }
+  },
+  "likert_scale": {
+    "options": [
+      "Strongly Dislike",
+      "Dislike",
+      "Neutral",
+      "Like",
+      "Strongly Like"
+    ],
+    "scores": {
+      "Strongly Dislike": 0,
+      "Dislike": 1,
+      "Neutral": 2,
+      "Like": 3,
+      "Strongly Like": 4
+    }
+  },
+  "questions": {
+    "school": [
+      {
+        "id": 1,
+        "category": "R",
+        "text": "Building, fixing, or assembling things with your hands",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 2,
+        "category": "R",
+        "text": "Playing outdoor sports or being physically active",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 3,
+        "category": "R",
+        "text": "Working with tools, machines, or gadgets",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 4,
+        "category": "R",
+        "text": "Gardening, woodworking, or hands-on craft projects",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 5,
+        "category": "R",
+        "text": "Taking apart toys or gadgets to see how they work",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 6,
+        "category": "I",
+        "text": "Solving math problems or logical puzzles",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 7,
+        "category": "I",
+        "text": "Doing science experiments and discovering how things work",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 8,
+        "category": "I",
+        "text": "Reading about space, nature, or new inventions",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 9,
+        "category": "I",
+        "text": "Asking 'why' and researching answers on your own",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 10,
+        "category": "I",
+        "text": "Analysing data, patterns, or clues to solve a mystery",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 11,
+        "category": "A",
+        "text": "Drawing, painting, or designing something creative",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 12,
+        "category": "A",
+        "text": "Writing stories, poems, or making music",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 13,
+        "category": "A",
+        "text": "Acting, dancing, or performing on stage",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 14,
+        "category": "A",
+        "text": "Making videos, digital art, or photography",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 15,
+        "category": "A",
+        "text": "Coming up with imaginative, out-of-the-box ideas",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 16,
+        "category": "S",
+        "text": "Helping classmates understand a difficult topic",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 17,
+        "category": "S",
+        "text": "Volunteering or helping people in your community",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 18,
+        "category": "S",
+        "text": "Listening to friends and helping them with problems",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 19,
+        "category": "S",
+        "text": "Working in a team on a group project",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 20,
+        "category": "S",
+        "text": "Taking care of younger kids, pets, or classmates",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 21,
+        "category": "E",
+        "text": "Leading a group, club, or class activity",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 22,
+        "category": "E",
+        "text": "Convincing friends to try your idea or plan",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 23,
+        "category": "E",
+        "text": "Organising events like a school fest or fundraiser",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 24,
+        "category": "E",
+        "text": "Starting a small project, stall, or club of your own",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 25,
+        "category": "E",
+        "text": "Debating or presenting your opinion in front of others",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 26,
+        "category": "C",
+        "text": "Keeping your notes, files, or schedule neatly organised",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 27,
+        "category": "C",
+        "text": "Following clear steps and checklists to finish a task",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 28,
+        "category": "C",
+        "text": "Working with numbers, spreadsheets, or record-keeping",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 29,
+        "category": "C",
+        "text": "Double-checking details so nothing is missed",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 30,
+        "category": "C",
+        "text": "Planning your day or week with a clear timetable",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      }
+    ],
+    "college": [
+      {
+        "id": 1,
+        "category": "R",
+        "text": "Working hands-on with equipment, hardware, or machinery",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 2,
+        "category": "R",
+        "text": "Fieldwork, lab-bench work, or physically building prototypes",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 3,
+        "category": "R",
+        "text": "Troubleshooting mechanical, electrical, or technical systems",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 4,
+        "category": "R",
+        "text": "Working outdoors or in a workshop/production environment",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 5,
+        "category": "R",
+        "text": "Operating or repairing vehicles, devices, or industrial tools",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 6,
+        "category": "I",
+        "text": "Analysing data, statistics, or research findings",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 7,
+        "category": "I",
+        "text": "Designing or conducting scientific/technical experiments",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 8,
+        "category": "I",
+        "text": "Studying complex theoretical or abstract concepts",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 9,
+        "category": "I",
+        "text": "Working with algorithms, models, or research methodology",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 10,
+        "category": "I",
+        "text": "Investigating unsolved problems with no obvious answer",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 11,
+        "category": "A",
+        "text": "Designing visuals, UI/UX, branding, or creative campaigns",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 12,
+        "category": "A",
+        "text": "Writing original content, scripts, or creative research",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 13,
+        "category": "A",
+        "text": "Composing music, filmmaking, or other artistic production",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 14,
+        "category": "A",
+        "text": "Innovating unconventional solutions to open-ended problems",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 15,
+        "category": "A",
+        "text": "Working in fields that reward original self-expression",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 16,
+        "category": "S",
+        "text": "Mentoring, teaching, or training other students/colleagues",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 17,
+        "category": "S",
+        "text": "Counselling, healthcare, or direct people-support work",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 18,
+        "category": "S",
+        "text": "Facilitating discussions or resolving conflicts in a group",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 19,
+        "category": "S",
+        "text": "Community/social-impact work or NGO-style projects",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 20,
+        "category": "S",
+        "text": "Building relationships and understanding people's needs",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 21,
+        "category": "E",
+        "text": "Pitching ideas, products, or plans to stakeholders",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 22,
+        "category": "E",
+        "text": "Leading a team toward a business or project goal",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 23,
+        "category": "E",
+        "text": "Negotiating deals, sales, or partnerships",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 24,
+        "category": "E",
+        "text": "Starting or running your own venture/startup",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 25,
+        "category": "E",
+        "text": "Making strategic decisions under time pressure",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 26,
+        "category": "C",
+        "text": "Managing budgets, records, or structured data systems",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 27,
+        "category": "C",
+        "text": "Following detailed procedures, compliance, or documentation",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 28,
+        "category": "C",
+        "text": "Auditing, quality-checking, or verifying accuracy in detail",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 29,
+        "category": "C",
+        "text": "Organising schedules, logistics, or administrative workflows",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      },
+      {
+        "id": 30,
+        "category": "C",
+        "text": "Working systematically within clear rules and structure",
+        "options": [
+          "Strongly Dislike",
+          "Dislike",
+          "Neutral",
+          "Like",
+          "Strongly Like"
+        ]
+      }
+    ]
+  }
+}
