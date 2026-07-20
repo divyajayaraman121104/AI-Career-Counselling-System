@@ -13,6 +13,122 @@ from google import genai
 from google.genai import types
 from google.genai import errors as genai_errors  # MODIFICATION (503 retry): needed to detect ServerError/503 specifically
 
+# MODIFICATION (i18n): translation utility for static UI text (nav, sidebar,
+# buttons, labels, validation/error/success/warning messages, footer, etc).
+# AI-generated content (career reports, chatbot replies, role breakdowns,
+# roadmaps, etc.) is intentionally left untouched - only hardcoded UI text
+# authored in this file is passed through translate_text().
+from translator import translate_text
+
+# MODIFICATION (i18n / static JSON translations): t() is the new key-based
+# translation helper (translations/<lang>.json via language_manager.py).
+# It is being rolled out for the common, mostly-static UI chrome (nav,
+# home, about, help, footer/contact, buttons, labels, and
+# success/warning/error messages). It is intentionally independent from
+# _t()/translate_text() above - that runtime translator still covers every
+# other page (assessment content, AI-generated reports, roadmaps, etc.)
+# and is untouched.
+from language_manager import t
+
+# MODIFICATION (Vocational Careers data): structured data + pure filter
+# helpers extracted from Vocational_Careers.pdf, kept in a separate module
+# (vocational_careers_data.py) so the source data can be maintained
+# independently of this file. Nothing here loads/parses the PDF itself at
+# runtime - it's plain Python constants + functions, imported once at
+# startup like any other module.
+import vocational_careers_data as vocational_data
+
+
+def _t(text):
+    """Shorthand: translate a static UI string into the user's currently
+    selected UI language (st.session_state.language). Safe to call before
+    st.session_state.language is initialized - falls back to English.
+
+    MODIFICATION (translation performance):
+    - Page-level scoping: only the show_*() function for the CURRENT
+      st.session_state.page ever runs (see the if/elif page dispatcher
+      near the bottom of this file), so hidden pages' strings are never
+      passed to _t() in the first place - nothing is preloaded/translated
+      for pages the user hasn't navigated to.
+    - Caching: translate_text() (translator.py) wraps the actual Google
+      Translate network call in a process-wide st.cache_data cache keyed
+      on the normalized (text, target_code, source_language). That means
+      a given UI string is sent to the translation backend at most ONCE
+      per language for the life of the running app - not once per
+      Streamlit rerun (which happens on every button click / widget
+      interaction) and not once per user session. Every later call for
+      that same string+language, from any page render or any user, is
+      served from memory. _t() intentionally does not add a second cache
+      of its own on top of this - translate_text()'s cache already
+      normalizes language labels (e.g. "Tamil" vs "tamil" vs
+      "English (Default)" vs "English") to the right cache key, so a
+      second, cruder cache here would only duplicate memory without
+      avoiding any additional network calls.
+    """
+    language = st.session_state.get("language", "English (Default)")
+    return translate_text(text, language)
+
+
+# MODIFICATION (Gemini multilingual prompts): Gemini is now asked to
+# generate every AI response directly in the student's selected language,
+# instead of generating in English and translating the output afterwards.
+# The selected language always comes from st.session_state.selected_language.
+def _get_selected_language():
+    """Return the language currently selected for Gemini AI responses.
+    Driven by the same dropdown that controls static UI translation
+    (st.session_state.language), so switching the language once switches
+    both the static UI and every Gemini-generated response. Safe to call
+    before st.session_state.language is initialized - falls back to
+    English."""
+    return st.session_state.get("language", "English (Default)") or "English (Default)"
+
+
+def _gemini_language_instruction():
+    """
+    Build the language directive prepended to every Gemini prompt so the
+    AI generates its entire response directly in the selected language.
+    Only the language instruction changes - prompt content, schema, and
+    output format requested elsewhere in each prompt stay exactly the same.
+    """
+    language = _get_selected_language().strip()
+    if language.lower().startswith("english"):
+        language = "English"
+    return f"Generate the response only in {language}."
+
+
+# MODIFICATION (translated assessment JSON): school/college/RIASEC
+# question banks each ship one JSON file per language
+# (e.g. school_questions.json / school_questions.ta.json / .hi.json /
+# .mr.json). This maps the same st.session_state.language value used
+# above to the filename suffix for those translated files. "" means the
+# untranslated/default English file (school_questions.json,
+# college_questions.json), which use no suffix at all - RIASEC is the
+# exception and always has an explicit language code, including English
+# ("riasec.en.json"), handled separately in load_riasec_questions().
+ASSESSMENT_LANGUAGE_SUFFIX = {
+    "english (default)": "",
+    "english": "",
+    "tamil": "ta",
+    "hindi": "hi",
+    "marathi": "mr",
+}
+
+
+def _get_assessment_language_code():
+    """Return the filename suffix ('', 'ta', 'hi', 'mr') for the
+    assessment JSON files matching the currently selected UI language
+    (st.session_state.language). Unrecognised/unset languages fall back
+    to '' (English)."""
+    language = _get_selected_language().strip().lower()
+    return ASSESSMENT_LANGUAGE_SUFFIX.get(language, "")
+
+
+# MODIFICATION (i18n): AI-generated content (career reports, chatbot
+# replies, role breakdowns, roadmaps, etc.) is no longer passed through any
+# translation step after Gemini generates it - Gemini output is rendered
+# and used as-is. Only static, hardcoded UI text authored in this file goes
+# through translate_text() / _t() above.
+
 # MODIFICATION (PDF charts): matplotlib is used to render the PDF report's
 # charts (career-match bar chart, skills pie chart, readiness/skill-gap
 # progress bars, roadmap timeline) to PNG images that get embedded into the
@@ -42,6 +158,56 @@ gemini_logger = logging.getLogger("coactions.gemini")
 GEMINI_MAX_RETRIES = 5                       # retry up to 5 times (6 attempts total) per model
 GEMINI_BACKOFF_SECONDS = [1, 2, 4, 8, 16]    # exponential backoff schedule, one entry per retry
 GEMINI_FALLBACK_MODEL_NAME = "gemini-2.5-flash"  # faster model to fall back to on persistent 503s
+
+
+# MODIFICATION (dynamic State -> City location selection): single source of
+# truth for every Indian State and Union Territory, each mapped to its top
+# 3 major cities. This is DATA, not UI - the Welcome page's State/City
+# selectboxes below are built by looping over this dict (no per-state
+# if/elif branches, nothing hardcoded into the widgets themselves). Adding,
+# removing, or re-ordering a state/city only ever requires editing this
+# dict; the UI updates automatically. State/city values are intentionally
+# left untranslated (same as the Grade dropdown) so downstream logic
+# (AI prompts, PDF report, etc.) always sees consistent English location
+# strings regardless of the selected UI language.
+INDIA_STATE_CITIES = {
+    "Andhra Pradesh": ["Visakhapatnam", "Vijayawada", "Guntur"],
+    "Arunachal Pradesh": ["Itanagar", "Naharlagun", "Pasighat"],
+    "Assam": ["Guwahati", "Dibrugarh", "Silchar"],
+    "Bihar": ["Patna", "Gaya", "Bhagalpur"],
+    "Chhattisgarh": ["Raipur", "Bhilai", "Bilaspur"],
+    "Goa": ["Panaji", "Margao", "Vasco da Gama"],
+    "Gujarat": ["Ahmedabad", "Surat", "Vadodara"],
+    "Haryana": ["Gurugram", "Faridabad", "Panipat"],
+    "Himachal Pradesh": ["Shimla", "Dharamshala", "Solan"],
+    "Jharkhand": ["Ranchi", "Jamshedpur", "Dhanbad"],
+    "Karnataka": ["Bengaluru", "Mysuru", "Mangaluru"],
+    "Kerala": ["Kochi", "Thiruvananthapuram", "Kozhikode"],
+    "Madhya Pradesh": ["Bhopal", "Indore", "Jabalpur"],
+    "Maharashtra": ["Mumbai", "Pune", "Nagpur"],
+    "Manipur": ["Imphal", "Thoubal", "Bishnupur"],
+    "Meghalaya": ["Shillong", "Tura", "Jowai"],
+    "Mizoram": ["Aizawl", "Lunglei", "Champhai"],
+    "Nagaland": ["Kohima", "Dimapur", "Mokokchung"],
+    "Odisha": ["Bhubaneswar", "Cuttack", "Rourkela"],
+    "Punjab": ["Ludhiana", "Amritsar", "Jalandhar"],
+    "Rajasthan": ["Jaipur", "Jodhpur", "Udaipur"],
+    "Sikkim": ["Gangtok", "Namchi", "Gyalshing"],
+    "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai"],
+    "Telangana": ["Hyderabad", "Warangal", "Nizamabad"],
+    "Tripura": ["Agartala", "Udaipur", "Dharmanagar"],
+    "Uttar Pradesh": ["Lucknow", "Kanpur", "Noida"],
+    "Uttarakhand": ["Dehradun", "Haridwar", "Nainital"],
+    "West Bengal": ["Kolkata", "Howrah", "Siliguri"],
+    "Andaman and Nicobar Islands": ["Port Blair", "Diglipur", "Rangat"],
+    "Chandigarh": ["Chandigarh"],
+    "Dadra and Nagar Haveli and Daman and Diu": ["Daman", "Diu", "Silvassa"],
+    "Delhi": ["New Delhi", "Dwarka", "Rohini"],
+    "Jammu and Kashmir": ["Srinagar", "Jammu", "Anantnag"],
+    "Ladakh": ["Leh", "Kargil"],
+    "Lakshadweep": ["Kavaratti"],
+    "Puducherry": ["Puducherry", "Karaikal", "Yanam"],
+}
 
 
 # Page configuration
@@ -621,6 +787,18 @@ st.markdown("""
         font-weight: 700;
         margin: var(--space-sm) 0 var(--space-xs) 0;
     }
+    /* Student Information heading + Language selector row - keeps the
+       heading left-aligned and the language dropdown pinned to the far
+       right, both vertically centered on the same row. */
+    .st-key-student_info_header_row [data-testid="stHorizontalBlock"] {
+        align-items: center;
+    }
+    .st-key-student_info_header_row .section-title {
+        margin: 0;
+    }
+    .st-key-student_info_header_row .stSelectbox {
+        margin-bottom: 0;
+    }
     .st-key-home_banner_wrap {
         text-align: center;
         margin-bottom: 18px;
@@ -1053,6 +1231,244 @@ st.markdown("""
         font-weight: 700;
     }
 
+    /* ==================== VOCATIONAL CAREER AI DETAIL ====================
+       Modern blue/cyan presentation for the AI-generated single-career
+       breakdown (Career Overview, Eligibility, Skills, Salary, Job Demand,
+       Certifications, Career Growth, Future Scope, Learning Roadmap, AI
+       Career Advice) on the Vocational Careers page. Scoped entirely under
+       "vocdetail-" classes so no other page/section is affected. Uses the
+       same blue/cyan gradient (#4facfe -> #00f2fe) already used elsewhere
+       in the app (skill chips, medium-priority badges) as its accent. */
+    .vocdetail-hero {
+        box-sizing: border-box;
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        border-radius: var(--radius-lg);
+        padding: 1.4rem 1.6rem;
+        margin: 0 0 var(--space-md) 0;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        box-shadow: 0 14px 30px -12px rgba(79,172,254,0.55);
+    }
+    .vocdetail-hero-icon {
+        font-size: 2.2rem;
+        width: 3.2rem;
+        height: 3.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255,255,255,0.22);
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    .vocdetail-hero-title {
+        font-size: 1.3rem;
+        font-weight: 800;
+        margin: 0 0 0.3rem 0;
+    }
+    .vocdetail-hero-badge {
+        display: inline-block;
+        background: rgba(255,255,255,0.25);
+        border-radius: 20px;
+        padding: 0.2rem 0.75rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+
+    /* Info-box cards (overview / salary / job demand / future scope / advice) */
+    .vocdetail-grid-2 {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--space-sm);
+        margin: 0 0 var(--space-sm) 0;
+    }
+    @media (max-width: 900px) {
+        .vocdetail-grid-2 { grid-template-columns: 1fr; }
+    }
+    .vocdetail-card {
+        box-sizing: border-box;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(6px);
+        border-radius: var(--radius-md);
+        padding: 1.1rem 1.2rem;
+        border: 1px solid rgba(79,172,254,0.22);
+        box-shadow: 0 10px 24px -14px rgba(0,0,0,0.18);
+        height: 100%;
+    }
+    .vocdetail-card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 0.5rem;
+    }
+    .vocdetail-card-icon {
+        width: 2.2rem;
+        height: 2.2rem;
+        min-width: 2.2rem;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.05rem;
+        box-shadow: 0 6px 14px -6px rgba(79,172,254,0.6);
+    }
+    .vocdetail-card-title {
+        font-weight: 800;
+        font-size: 0.98rem;
+        color: #2d2d44;
+    }
+    .vocdetail-card-body {
+        font-size: 0.88rem;
+        color: #4a4a5e;
+        line-height: 1.55;
+    }
+    .vocdetail-card-body ul {
+        margin: 0.2rem 0 0 1.1rem;
+        padding: 0;
+    }
+    .vocdetail-card-body li {
+        margin-bottom: 0.3rem;
+    }
+
+    /* Skill tags */
+    .vocdetail-tag-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: 0.2rem;
+    }
+    .vocdetail-tag {
+        display: inline-block;
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        color: white;
+        border-radius: 30px;
+        padding: 0.45rem 0.95rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        box-shadow: 0 4px 10px -4px rgba(79,172,254,0.5);
+    }
+
+    /* List-style info cards (eligibility / certifications) as icon rows */
+    .vocdetail-list-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.55rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.88rem;
+        color: #4a4a5e;
+        line-height: 1.5;
+    }
+    .vocdetail-list-row:last-child {
+        margin-bottom: 0;
+    }
+    .vocdetail-list-dot {
+        width: 1.5rem;
+        height: 1.5rem;
+        min-width: 1.5rem;
+        border-radius: 50%;
+        background: rgba(79,172,254,0.15);
+        color: #0091d5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 800;
+        margin-top: 0.05rem;
+    }
+
+    /* Career growth: horizontal stepper / progress indicator */
+    .vocdetail-stepper {
+        display: flex;
+        align-items: flex-start;
+        overflow-x: auto;
+        padding: 0.4rem 0.1rem 0.6rem 0.1rem;
+        gap: 0;
+    }
+    .vocdetail-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        min-width: 108px;
+        position: relative;
+    }
+    .vocdetail-step-circle {
+        width: 2.4rem;
+        height: 2.4rem;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 0.95rem;
+        box-shadow: 0 6px 14px -6px rgba(79,172,254,0.6);
+        z-index: 1;
+    }
+    .vocdetail-step-connector {
+        position: absolute;
+        top: 1.2rem;
+        left: calc(-50% + 1.2rem);
+        width: calc(100% - 2.4rem);
+        height: 3px;
+        background: linear-gradient(90deg, #4facfe, #00f2fe);
+        z-index: 0;
+    }
+    .vocdetail-step-label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #2d2d44;
+        margin-top: 0.45rem;
+        max-width: 100px;
+    }
+
+    /* Learning roadmap: vertical numbered timeline */
+    .vocdetail-timeline {
+        position: relative;
+        margin: 0.3rem 0 0.2rem 0;
+        padding-left: 2.3rem;
+    }
+    .vocdetail-timeline::before {
+        content: "";
+        position: absolute;
+        left: 0.78rem;
+        top: 0.3rem;
+        bottom: 0.3rem;
+        width: 3px;
+        background: linear-gradient(180deg, #4facfe, #00f2fe);
+        border-radius: 3px;
+    }
+    .vocdetail-timeline-item {
+        position: relative;
+        margin-bottom: 0.9rem;
+        font-size: 0.88rem;
+        color: #4a4a5e;
+        line-height: 1.5;
+    }
+    .vocdetail-timeline-item:last-child {
+        margin-bottom: 0;
+    }
+    .vocdetail-timeline-dot {
+        position: absolute;
+        left: -2.3rem;
+        top: 0.05rem;
+        width: 1.7rem;
+        height: 1.7rem;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.78rem;
+        font-weight: 800;
+    }
+
     /* ==================== AI RESUME SUGGESTIONS ==================== */
     .resume-note-card {
         box-sizing: border-box;
@@ -1214,6 +1630,8 @@ st.markdown("""
 # Initialize session state
 if 'page' not in st.session_state:
     st.session_state.page = 'welcome'
+if 'language' not in st.session_state:
+    st.session_state.language = "English (Default)"
 if 'user_type' not in st.session_state:
     st.session_state.user_type = None
 if 'student_city' not in st.session_state:
@@ -1457,7 +1875,7 @@ def load_json_file(file_path):
     try:
         full_path = Path(file_path)
         if not full_path.exists():
-            st.error(f"File not found: {file_path}")
+            st.error(f"{t('messages.error.file_not_found')} {file_path}")
             return None
         with open(full_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -1475,7 +1893,7 @@ def load_json_file(file_path):
         print(f"Loaded {file_path}: {len(data.get('categories', []))} categories, {total_questions} questions")
         return data
     except Exception as e:
-        st.error(f"Error loading {file_path}: {str(e)}")
+        st.error(f"{t('messages.error.error_loading')} {file_path}: {str(e)}")
         return None
         
 def extract_questions_from_json(data):
@@ -1556,6 +1974,61 @@ def extract_questions_from_json(data):
     
     return questions, categories
 
+
+# MODIFICATION (translated assessment JSON): reusable loaders for the
+# school / college / RIASEC question banks. Each one automatically picks
+# the JSON file matching st.session_state.language (via
+# _get_assessment_language_code()) and silently falls back to the
+# English file if the translated file for that language doesn't exist
+# on disk yet. Loading itself still goes through load_json_file(), so
+# behaviour (caching, error handling, debug logging) is unchanged from
+# before - only *which* filename gets loaded is now language-aware.
+def load_school_questions():
+    """Load the school assessment question bank JSON for the currently
+    selected UI language, falling back to school_questions.json
+    (English) if the translated file is missing."""
+    lang_code = _get_assessment_language_code()
+    if lang_code:
+        localized_file = f"school_questions.{lang_code}.json"
+        if Path(localized_file).exists():
+            return load_json_file(localized_file)
+    return load_json_file("school_questions.json")
+
+
+def load_college_questions():
+    """Load the college assessment question bank JSON for the currently
+    selected UI language, falling back to college_questions.json
+    (English) if the translated file is missing."""
+    lang_code = _get_assessment_language_code()
+    if lang_code:
+        localized_file = f"college_questions.{lang_code}.json"
+        if Path(localized_file).exists():
+            return load_json_file(localized_file)
+    return load_json_file("college_questions.json")
+
+
+@st.cache_data
+def _load_riasec_json_file(filename):
+    """Read a RIASEC question-bank JSON file from disk by filename,
+    falling back to riasec.en.json if that file doesn't exist. Cached
+    per filename for the life of the running app."""
+    path = Path(__file__).parent / filename
+    if not path.exists():
+        path = Path(__file__).parent / "riasec.en.json"
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def load_riasec_questions():
+    """Load the RIASEC question bank JSON for the currently selected UI
+    language (riasec.en.json / .ta.json / .hi.json / .mr.json), falling
+    back to riasec.en.json if the translated file is missing. Unlike
+    school/college, RIASEC files always carry an explicit language code
+    - English is 'en', never an unsuffixed filename."""
+    lang_code = _get_assessment_language_code() or "en"
+    return _load_riasec_json_file(f"riasec.{lang_code}.json")
+
+
 # ==================== RIASEC AI CAREER ASSESSMENT ====================
 # Holland's RIASEC model (Realistic, Investigative, Artistic, Social,
 # Enterprising, Conventional) is a standard, published psychometric
@@ -1595,74 +2068,14 @@ def get_riasec_questions(user_type):
     survey) - it is not a career-outcome mapping. Everything derived from
     the answers (personality type, careers, strengths, etc.) is generated
     fresh by Gemini in generate_ai_riasec_assessment(), never hardcoded.
+
+    The question data itself lives in riasec.<lang>.json (ids, categories
+    match what used to be hardcoded here; text is now loaded in whichever
+    language is currently selected, via load_riasec_questions()).
     """
-    school_questions = [
-        {"id": 1, "category": "R", "text": "Building, fixing, or assembling things with your hands"},
-        {"id": 2, "category": "R", "text": "Playing outdoor sports or being physically active"},
-        {"id": 3, "category": "R", "text": "Working with tools, machines, or gadgets"},
-        {"id": 4, "category": "R", "text": "Gardening, woodworking, or hands-on craft projects"},
-        {"id": 5, "category": "R", "text": "Taking apart toys or gadgets to see how they work"},
-        {"id": 6, "category": "I", "text": "Solving math problems or logical puzzles"},
-        {"id": 7, "category": "I", "text": "Doing science experiments and discovering how things work"},
-        {"id": 8, "category": "I", "text": "Reading about space, nature, or new inventions"},
-        {"id": 9, "category": "I", "text": "Asking 'why' and researching answers on your own"},
-        {"id": 10, "category": "I", "text": "Analysing data, patterns, or clues to solve a mystery"},
-        {"id": 11, "category": "A", "text": "Drawing, painting, or designing something creative"},
-        {"id": 12, "category": "A", "text": "Writing stories, poems, or making music"},
-        {"id": 13, "category": "A", "text": "Acting, dancing, or performing on stage"},
-        {"id": 14, "category": "A", "text": "Making videos, digital art, or photography"},
-        {"id": 15, "category": "A", "text": "Coming up with imaginative, out-of-the-box ideas"},
-        {"id": 16, "category": "S", "text": "Helping classmates understand a difficult topic"},
-        {"id": 17, "category": "S", "text": "Volunteering or helping people in your community"},
-        {"id": 18, "category": "S", "text": "Listening to friends and helping them with problems"},
-        {"id": 19, "category": "S", "text": "Working in a team on a group project"},
-        {"id": 20, "category": "S", "text": "Taking care of younger kids, pets, or classmates"},
-        {"id": 21, "category": "E", "text": "Leading a group, club, or class activity"},
-        {"id": 22, "category": "E", "text": "Convincing friends to try your idea or plan"},
-        {"id": 23, "category": "E", "text": "Organising events like a school fest or fundraiser"},
-        {"id": 24, "category": "E", "text": "Starting a small project, stall, or club of your own"},
-        {"id": 25, "category": "E", "text": "Debating or presenting your opinion in front of others"},
-        {"id": 26, "category": "C", "text": "Keeping your notes, files, or schedule neatly organised"},
-        {"id": 27, "category": "C", "text": "Following clear steps and checklists to finish a task"},
-        {"id": 28, "category": "C", "text": "Working with numbers, spreadsheets, or record-keeping"},
-        {"id": 29, "category": "C", "text": "Double-checking details so nothing is missed"},
-        {"id": 30, "category": "C", "text": "Planning your day or week with a clear timetable"},
-    ]
-
-    college_questions = [
-        {"id": 1, "category": "R", "text": "Working hands-on with equipment, hardware, or machinery"},
-        {"id": 2, "category": "R", "text": "Fieldwork, lab-bench work, or physically building prototypes"},
-        {"id": 3, "category": "R", "text": "Troubleshooting mechanical, electrical, or technical systems"},
-        {"id": 4, "category": "R", "text": "Working outdoors or in a workshop/production environment"},
-        {"id": 5, "category": "R", "text": "Operating or repairing vehicles, devices, or industrial tools"},
-        {"id": 6, "category": "I", "text": "Analysing data, statistics, or research findings"},
-        {"id": 7, "category": "I", "text": "Designing or conducting scientific/technical experiments"},
-        {"id": 8, "category": "I", "text": "Studying complex theoretical or abstract concepts"},
-        {"id": 9, "category": "I", "text": "Working with algorithms, models, or research methodology"},
-        {"id": 10, "category": "I", "text": "Investigating unsolved problems with no obvious answer"},
-        {"id": 11, "category": "A", "text": "Designing visuals, UI/UX, branding, or creative campaigns"},
-        {"id": 12, "category": "A", "text": "Writing original content, scripts, or creative research"},
-        {"id": 13, "category": "A", "text": "Composing music, filmmaking, or other artistic production"},
-        {"id": 14, "category": "A", "text": "Innovating unconventional solutions to open-ended problems"},
-        {"id": 15, "category": "A", "text": "Working in fields that reward original self-expression"},
-        {"id": 16, "category": "S", "text": "Mentoring, teaching, or training other students/colleagues"},
-        {"id": 17, "category": "S", "text": "Counselling, healthcare, or direct people-support work"},
-        {"id": 18, "category": "S", "text": "Facilitating discussions or resolving conflicts in a group"},
-        {"id": 19, "category": "S", "text": "Community/social-impact work or NGO-style projects"},
-        {"id": 20, "category": "S", "text": "Building relationships and understanding people's needs"},
-        {"id": 21, "category": "E", "text": "Pitching ideas, products, or plans to stakeholders"},
-        {"id": 22, "category": "E", "text": "Leading a team toward a business or project goal"},
-        {"id": 23, "category": "E", "text": "Negotiating deals, sales, or partnerships"},
-        {"id": 24, "category": "E", "text": "Starting or running your own venture/startup"},
-        {"id": 25, "category": "E", "text": "Making strategic decisions under time pressure"},
-        {"id": 26, "category": "C", "text": "Managing budgets, records, or structured data systems"},
-        {"id": 27, "category": "C", "text": "Following detailed procedures, compliance, or documentation"},
-        {"id": 28, "category": "C", "text": "Auditing, quality-checking, or verifying accuracy in detail"},
-        {"id": 29, "category": "C", "text": "Organising schedules, logistics, or administrative workflows"},
-        {"id": 30, "category": "C", "text": "Working systematically within clear rules and structure"},
-    ]
-
-    questions = school_questions if user_type == 'school' else college_questions
+    data = load_riasec_questions()
+    key = "school" if user_type == "school" else "college"
+    questions = data["questions"][key]
     return [{**q, "options": RIASEC_LIKERT_OPTIONS} for q in questions]
 
 
@@ -1858,7 +2271,7 @@ def generate_ai_riasec_assessment(student_details, riasec_scores, user_type):
     except GeminiConfigError as e:
         st.session_state.riasec_result = None
         st.session_state.riasec_result_error = str(e)
-        return {"status": "error", "message": "The RIASEC AI assessment is temporarily unavailable. Please try again later."}
+        return {"status": "error", "message": _t("The RIASEC AI assessment is temporarily unavailable. Please try again later.")}
 
     try:
         data, response_text = generate_validated_json(
@@ -1875,18 +2288,18 @@ def generate_ai_riasec_assessment(student_details, riasec_scores, user_type):
             )
             return {
                 "status": "error",
-                "message": "Your RIASEC assessment could not be generated right now. Please try again later.",
+                "message": _t("Your RIASEC assessment could not be generated right now. Please try again later."),
             }
 
         st.session_state.riasec_result = data
         st.session_state.riasec_result_error = None
-        return {"status": "success", "message": "RIASEC assessment generated."}
+        return {"status": "success", "message": _t("RIASEC assessment generated.")}
     except Exception as e:
         st.session_state.riasec_result = None
         st.session_state.riasec_result_error = str(e)
         return {
             "status": "error",
-            "message": "Something went wrong while generating your RIASEC assessment. Please try again later.",
+            "message": _t("Something went wrong while generating your RIASEC assessment. Please try again later."),
         }
 
 
@@ -1968,6 +2381,154 @@ def _chart_level_color(label):
     return _CHART_LEVEL_COLORS.get(str(label or "").strip().lower(), _CHART_CYAN)
 
 
+# MODIFICATION (i18n / PDF Unicode fonts): the PDF report used to call
+# pdf.set_font('helvetica', ...) everywhere and rely on the built-in
+# core "Helvetica" font. Core Helvetica only covers Latin-1, so any
+# Tamil, Hindi, or Marathi text (and non-Latin-1 characters in English
+# text) raised: 'Character ... is outside the range of characters
+# supported by the font "Helvetica"'.
+#
+# Fix: register real, modern Unicode font families per script - "Noto
+# Sans" for English, "Noto Sans Tamil" for Tamil, "Noto Sans Devanagari"
+# for Hindi & Marathi - auto-selected from the current UI language, then
+# monkey-patch set_font on this pdf instance so every existing
+# pdf.set_font('helvetica', ...) call throughout the report transparently
+# resolves to the correct Noto family for the active language. No call
+# site, layout, report content, colors, branding, or translation logic
+# changes - only which font file backs "helvetica" changes.
+#
+# Each language keeps its own registered font family (rather than sharing
+# one generic family name) so Tamil always renders with the Tamil-shaped
+# glyphs of Noto Sans Tamil - never with the Devanagari or Latin font -
+# and likewise for Hindi/Marathi and English.
+#
+# REQUIRED ASSET (place alongside app.py / logo.png), per family:
+#   <Family>-Regular.ttf   e.g. NotoSans-Regular.ttf
+# OPTIONAL, for true (non-faked) bold/italic instead of reusing Regular:
+#   <Family>-Bold.ttf, <Family>-Italic.ttf, <Family>-BoldItalic.ttf
+_PDF_FONT_FAMILY_BY_LANGUAGE = {
+    "English (Default)": "NotoSans",
+    "English": "NotoSans",
+    "Hindi": "NotoSansDevanagari",
+    "Marathi": "NotoSansDevanagari",
+    "Tamil": "NotoSansTamil",
+}
+_PDF_FONT_STYLE_SUFFIX = {'': 'Regular', 'B': 'Bold', 'I': 'Italic', 'BI': 'BoldItalic'}
+
+
+def _resolve_pdf_font_files(family_base):
+    """Return {style: file_path} for the given font family base name
+    (e.g. 'NotoSansTamil'), using real Bold/Italic/BoldItalic files where
+    present and transparently falling back to the Regular file for any
+    style whose dedicated file isn't shipped. Returns None if even the
+    Regular file is missing."""
+    regular_path = f"{family_base}-Regular.ttf"
+    if not os.path.exists(regular_path):
+        return None
+    return {
+        style: (f"{family_base}-{suffix}.ttf" if os.path.exists(f"{family_base}-{suffix}.ttf") else regular_path)
+        for style, suffix in _PDF_FONT_STYLE_SUFFIX.items()
+    }
+
+
+def _register_pdf_font(pdf):
+    lang = st.session_state.get("language", "English (Default)")
+    # Always resolve to a Noto Sans variant - English included - never to
+    # helvetica.ttf/built-in Helvetica, with NotoSans as the safety-net
+    # both for unrecognized languages and if a script-specific family is
+    # missing on disk.
+    preferred_family = _PDF_FONT_FAMILY_BY_LANGUAGE.get(lang, "NotoSans")
+
+    for family in (preferred_family, "NotoSans"):
+        font_files = _resolve_pdf_font_files(family)
+        if not font_files:
+            continue
+        try:
+            for style, path in font_files.items():
+                pdf.add_font(family, style, path)
+
+            _base_set_font = pdf.set_font
+
+            def _unicode_aware_set_font(fam, style='', size=0, *args, __family=family, **kwargs):
+                if fam == 'helvetica':
+                    fam = __family
+                return _base_set_font(fam, style, size, *args, **kwargs)
+
+            pdf.set_font = _unicode_aware_set_font
+            pdf.set_font('helvetica', '', 12)
+
+            # Enable HarfBuzz-based text shaping (fpdf2's optional
+            # 'uharfbuzz' dependency) when available, so complex scripts -
+            # Tamil vowel-sign reordering/conjuncts, Devanagari ligatures -
+            # get correct glyph shaping and spacing instead of naive
+            # one-glyph-per-codepoint placement. No-ops silently if
+            # 'uharfbuzz' isn't installed; text still renders correctly via
+            # Noto's own cmap, just without shaping refinements.
+            try:
+                pdf.set_text_shaping(True)
+            except Exception:
+                pass
+
+            return
+        except Exception:
+            continue
+
+    # Last-resort only: no Noto font file found on disk at all (assets not
+    # deployed) - fall back to built-in Helvetica so the app doesn't hard
+    # crash, though non-Latin-1 text will then fail again as before until
+    # the required assets above are added.
+    pdf.set_font('helvetica', '', 12)
+
+
+# MODIFICATION (i18n): matplotlib's default font (DejaVu Sans) has no
+# Devanagari (Hindi/Marathi) or Tamil glyphs, so translated chart text
+# would render as missing-glyph boxes even though chart_* labels are now
+# passed through _t(). Register the same local Noto TTFs used for the PDF
+# body text with matplotlib's font manager (so chart labels match even if
+# the fonts aren't installed system-wide), then pick the family for the
+# *currently selected* language first, falling back through the other
+# scripts and finally to matplotlib's default so English/Latin-script
+# charts are unaffected. This only affects PNG chart images - it does not
+# touch FPDF text.
+def _configure_chart_font():
+    if not MATPLOTLIB_AVAILABLE:
+        return
+    try:
+        from matplotlib import font_manager
+
+        for local_file in (
+            "NotoSans-Regular.ttf",
+            "NotoSansTamil-Regular.ttf",
+            "NotoSansDevanagari-Regular.ttf",
+        ):
+            if os.path.exists(local_file):
+                try:
+                    font_manager.fontManager.addfont(local_file)
+                except Exception:
+                    pass
+
+        available = {f.name for f in font_manager.fontManager.ttflist}
+        lang = st.session_state.get("language", "English (Default)")
+        lang_priority = {
+            "Tamil": ["Noto Sans Tamil"],
+            "Hindi": ["Noto Sans Devanagari"],
+            "Marathi": ["Noto Sans Devanagari"],
+        }
+        # Script matching the active language wins first, then the other
+        # Unicode fallbacks, so chart text always matches the language the
+        # PDF was generated in rather than an arbitrary fixed order.
+        ordered = lang_priority.get(lang, []) + [
+            "Noto Sans", "Noto Sans Devanagari", "Noto Sans Tamil",
+            "Mangal", "Nirmala UI", "Lohit Devanagari", "Lohit Tamil",
+        ]
+        for name in ordered:
+            if name in available:
+                plt.rcParams["font.family"] = name
+                return
+    except Exception:
+        pass
+
+
 def _new_chart_path():
     import tempfile
     f = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
@@ -1978,6 +2539,7 @@ def _new_chart_path():
 def _style_chart_axes(ax, fig):
     """Common cosmetic cleanup shared by every chart: white background, no
     top/right/left spines, muted gridlines, brand-colored ticks."""
+    _configure_chart_font()
     fig.patch.set_facecolor("white")
     ax.set_facecolor("white")
     for spine in ("top", "right", "left"):
@@ -2033,12 +2595,13 @@ def chart_skills_pie(tech_count, soft_count, fig_w_in):
     if not MATPLOTLIB_AVAILABLE or (tech_count <= 0 and soft_count <= 0):
         return None
 
+    _configure_chart_font()
     fig_h_in = round(fig_w_in * 0.5, 2)
     fig, ax = plt.subplots(figsize=(fig_w_in, fig_h_in))
     fig.patch.set_facecolor("white")
 
     values = [tech_count, soft_count]
-    labels = [f"Technical Skills ({tech_count})", f"Soft Skills ({soft_count})"]
+    labels = [f"{_t('Technical Skills')} ({tech_count})", f"{_t('Soft Skills')} ({soft_count})"]
     colors = [_CHART_DARK_BLUE, _CHART_CYAN]
 
     wedges, _texts, autotexts = ax.pie(
@@ -2079,7 +2642,7 @@ def chart_career_readiness(overall_score, strengths, fig_w_in):
 
     rows = []
     if overall_score is not None:
-        rows.append(("Overall Career Readiness", overall_score, True))
+        rows.append((_t("Overall Career Readiness"), overall_score, True))
     for name, score in strengths[:8]:
         label = name if len(name) <= 30 else name[:27] + "..."
         rows.append((label, max(0.0, min(100.0, score)), False))
@@ -2156,7 +2719,7 @@ def chart_skill_gap(items, fig_w_in):
     ax.set_yticklabels(labels)
     ax.set_xlim(0, 108)
     ax.set_xticks([0, 25, 50, 75, 100])
-    ax.set_xlabel("Learning Difficulty (%)", color=_CHART_LABEL, fontsize=9)
+    ax.set_xlabel(_t("Learning Difficulty (%)"), color=_CHART_LABEL, fontsize=9)
     ax.xaxis.grid(True, color=_CHART_GRID, linewidth=0.8, zorder=0)
     ax.set_axisbelow(True)
 
@@ -2167,9 +2730,9 @@ def chart_skill_gap(items, fig_w_in):
     # Small legend explaining the color coding.
     from matplotlib.patches import Patch
     legend_handles = [
-        Patch(facecolor=_CHART_DARK_BLUE, label="High / Hard"),
-        Patch(facecolor="#1C7FA8", label="Medium"),
-        Patch(facecolor=_CHART_CYAN, label="Low / Easy"),
+        Patch(facecolor=_CHART_DARK_BLUE, label=_t("High / Hard")),
+        Patch(facecolor="#1C7FA8", label=_t("Medium")),
+        Patch(facecolor=_CHART_CYAN, label=_t("Low / Easy")),
     ]
     ax.legend(handles=legend_handles, loc="lower right", frameon=False, fontsize=8, labelcolor=_CHART_TEXT)
 
@@ -2192,6 +2755,7 @@ def chart_roadmap_timeline(months, fig_w_in):
     if not months:
         return None
 
+    _configure_chart_font()
     n = len(months)
     xs = list(range(n))
     fig_h_in = 2.5
@@ -2267,6 +2831,11 @@ def generate_pdf_report():
     stream = st.session_state.get('selected_stream_data') or {}
     stream_name = stream.get('stream_name', 'Selected Stream')
     score_value = stream.get('match_percentage', 0)
+    # MODIFICATION (i18n): translated display copy of the stream name for
+    # every place it's rendered in the PDF; the raw `stream_name` is kept
+    # untouched since it's also passed into generate_top10_related_roles()
+    # below for AI lookups, which must stay in the original English.
+    stream_name_t = _t(stream_name) if stream_name else stream_name
 
     recommendation = {
         "status": "success",
@@ -2327,7 +2896,7 @@ def generate_pdf_report():
             self.set_xy(0, 2.2)
             self.set_font('helvetica', '', 8)
             self.set_text_color(180, 230, 240)
-            self.cell(self.w - CONTENT_MARGIN, 6, 'AI Career Guidance & Career Counselling System', align='R')
+            self.cell(self.w - CONTENT_MARGIN, 6, _t('AI Career Guidance & Career Counselling System'), align='R')
 
             self.set_y(20)
 
@@ -2348,12 +2917,12 @@ def generate_pdf_report():
             self.set_xy(CONTENT_MARGIN, self.h - 11.4)
             self.set_font('helvetica', 'I', 7)
             self.set_text_color(*LABEL_MUTED)
-            self.cell(100, 4.4, 'AI Career Guidance & Career Counselling System', align='L')
+            self.cell(100, 4.4, _t('AI Career Guidance & Career Counselling System'), align='L')
 
             self.set_xy(0, self.h - 13.6)
             self.set_font('helvetica', '', 8)
             self.set_text_color(*LABEL_MUTED)
-            self.cell(self.w - CONTENT_MARGIN, 4.6, f'Page {self.page_no()} of {{nb}}', align='R')
+            self.cell(self.w - CONTENT_MARGIN, 4.6, f"{_t('Page')} {self.page_no()} {_t('of')} {{nb}}", align='R')
 
     # ------------------------------------------------------------------
     # Cover page design: Dark Blue / Cyan / White corporate theme.
@@ -2422,7 +2991,7 @@ def generate_pdf_report():
         pdf.set_font('helvetica', '', 12.5)
         pdf.set_text_color(*CYAN_SOFT)
         pdf.ln(1)
-        pdf.cell(0, 7, "AI Career Guidance & Career Counselling System", align='C', ln=1)
+        pdf.cell(0, 7, clean_text(_t("AI Career Guidance & Career Counselling System")), align='C', ln=1)
 
         # Divider
         pdf.ln(6)
@@ -2436,7 +3005,7 @@ def generate_pdf_report():
         pdf.ln(8)
         pdf.set_font('helvetica', 'B', 18)
         pdf.set_text_color(*WHITE)
-        pdf.cell(0, 10, "Personalized Career Report", align='C', ln=1)
+        pdf.cell(0, 10, clean_text(_t("Personalized Career Report")), align='C', ln=1)
 
         # Student info card
         card_w = page_w - 2 * margin - 24
@@ -2452,10 +3021,10 @@ def generate_pdf_report():
         pdf.rect(card_x, card_y, 3, card_h, style='F')
 
         rows = [
-            ("STUDENT NAME", student_name or "Not Provided"),
-            ("STUDENT TYPE", student_type_label or "Not Provided"),
-            ("SELECTED CAREER STREAM", career_stream_name or "Not Selected"),
-            ("REPORT GENERATED", datetime.now().strftime('%d %b %Y, %I:%M %p')),
+            (_t("STUDENT NAME"), student_name or _t("Not Provided")),
+            (_t("STUDENT TYPE"), student_type_label or _t("Not Provided")),
+            (_t("SELECTED CAREER STREAM"), career_stream_name or _t("Not Selected")),
+            (_t("REPORT GENERATED"), datetime.now().strftime('%d %b %Y, %I:%M %p')),
         ]
 
         row_h = card_h / len(rows)
@@ -2484,7 +3053,7 @@ def generate_pdf_report():
         pdf.set_y(page_h - 22)
         pdf.set_font('helvetica', 'I', 9.5)
         pdf.set_text_color(*CYAN_SOFT)
-        pdf.cell(0, 6, "Empowering Students Through the Elevate Initiative", align='C', ln=1)
+        pdf.cell(0, 6, clean_text(_t("Empowering Students Through the Elevate Initiative")), align='C', ln=1)
 
         # Restore default auto page-break behaviour for the rest of the report.
         pdf.set_auto_page_break(True, margin=20)
@@ -2493,12 +3062,9 @@ def generate_pdf_report():
     pdf = PDF()
     pdf.alias_nb_pages()  # enables "Page X of {nb}" in the footer
 
-    # Try to add Unicode font, fallback to helvetica
-    try:
-        pdf.add_font('helvetica', '', 'helvetica.ttf', uni=True)
-        pdf.set_font('helvetica', '', 12)
-    except:
-        pdf.set_font('helvetica', '', 12)
+    # MODIFICATION (i18n): registers a font matching the selected UI
+    # language (falls back to helvetica.ttf / built-in helvetica).
+    _register_pdf_font(pdf)
     
     # Helper function to clean text (remove emojis and special chars)
     def clean_text(text):
@@ -2516,8 +3082,12 @@ def generate_pdf_report():
         text = emoji_pattern.sub(r'', text)
         # Replace bullet points with asterisks
         text = text.replace('•', '-').replace('●', '-').replace('○', '-')
-        # Remove other special characters
-        text = text.encode('ascii', 'ignore').decode('ascii')
+        # MODIFICATION (i18n): previously this stripped every non-ASCII
+        # character (text.encode('ascii','ignore').decode('ascii')), which
+        # silently deleted translated Tamil/Hindi/Marathi text before it
+        # ever reached the PDF. Non-ASCII characters are now kept - correct
+        # rendering additionally requires a Unicode font whose glyph set
+        # covers the target script to be embedded via pdf.add_font() below.
         return text.strip()
     
     # Helper function to add multi-cell text safely
@@ -2594,7 +3164,7 @@ def generate_pdf_report():
 
     def draw_text_card(title, text):
         """Section title bar + rounded card containing a single paragraph."""
-        body = clean_text(str(text)) if text not in (None, "") else "Not available."
+        body = clean_text(str(text)) if text not in (None, "") else clean_text(_t("Not available."))
         pad = 6
         inner_w = content_width() - 2 * pad
         line_h = 5.6
@@ -2620,7 +3190,7 @@ def generate_pdf_report():
         """Section title bar + rounded card containing a bulleted list."""
         items = [clean_text(str(i)) for i in (items or []) if str(i).strip()]
         if not items:
-            items = ["Not available."]
+            items = [clean_text(_t("Not available."))]
         pad = 6
         bullet_indent = 5
         inner_w = content_width() - 2 * pad - bullet_indent
@@ -2658,12 +3228,12 @@ def generate_pdf_report():
             draw_text_card(title, body)
 
     # ---- Cover Page ----
-    student_type_label = 'School Student' if st.session_state.user_type == 'school' else 'College Student'
+    student_type_label = _t('School Student') if st.session_state.user_type == 'school' else _t('College Student')
     draw_cover_page(
         pdf,
         student_name=st.session_state.student_name,
         student_type_label=student_type_label,
-        career_stream_name=stream_name,
+        career_stream_name=stream_name_t,
     )
 
     # Start the report content on a fresh page after the cover, using the
@@ -2673,51 +3243,61 @@ def generate_pdf_report():
     pdf.add_page()
 
     # Student Information
-    draw_kv_card("Student Information", [
-        ("Name", st.session_state.student_name),
-        ("Age", st.session_state.student_age),
-        ("Institution", st.session_state.student_institution),
-        ("City", st.session_state.student_city),
-        ("State", st.session_state.student_state),
-        ("Grade/Year", st.session_state.student_grade),
-        ("Assessment Type", f"{'School Student' if st.session_state.user_type == 'school' else 'College Student'} Pathway"),
-        ("Date", datetime.now().strftime('%Y-%m-%d')),
+    draw_kv_card(t("home.student_information"), [
+        (_t("Name"), st.session_state.student_name),
+        (t("labels.age"), st.session_state.student_age),
+        (_t("Institution"), st.session_state.student_institution),
+        (_t("City"), st.session_state.student_city),
+        (_t("State"), st.session_state.student_state),
+        (_t("Grade/Year"), st.session_state.student_grade),
+        (_t("Assessment Type"), f"{_t('School Student') if st.session_state.user_type == 'school' else _t('College Student')} {_t('Pathway')}"),
+        (_t("Date"), datetime.now().strftime('%Y-%m-%d')),
     ])
 
     # Selected Stream
-    draw_kv_card("Selected Stream", [
-        ("Stream", stream_name),
-        ("Match Score", f"{score_value:.1f}%"),
+    draw_kv_card(_t("Selected Stream"), [
+        (_t("Stream"), stream_name_t),
+        (_t("Match Score"), f"{score_value:.1f}%"),
     ])
 
     # MODIFICATION (PDF charts): Top Career Match Percentages bar chart -
     # visualises the same match_percentage values shown in the app's
     # "Top Matching Careers" / "Top 3 AI Career Recommendations" screens.
+    # MODIFICATION (i18n): each career/stream label is translated for the
+    # chart, since chart_top_career_matches() only plots what it's given.
     if top_match_items:
+        top_match_items = [(_t(label), pct) for label, pct in top_match_items]
         chart_fig_w_in = (content_width() - 12) / 25.4  # card inner width, mm -> in
         draw_chart_card(
             pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
-            PDF_WHITE, CARD_BORDER, "Top Career Match Percentages",
+            PDF_WHITE, CARD_BORDER, _t("Top Career Match Percentages"),
             chart_top_career_matches(top_match_items, chart_fig_w_in),
             chart_fig_w_in,
         )
 
     # AI Recommendation
-    draw_text_card("AI Recommendation", recommendation.get('message', 'Recommendations are not available yet.'))
+    # MODIFICATION (i18n): only the "AI Recommendation" label goes through
+    # _t(); the message itself is Gemini-generated content and is already
+    # produced directly in the selected language, so it is rendered as-is.
+    draw_text_card(_t("AI Recommendation"), recommendation.get('message', 'Recommendations are not available yet.'))
 
     # AI Analysis - Strengths & Opportunities only (never Weaknesses/Threats)
+    # MODIFICATION (i18n): translate the whole AI-generated dict once
+    # (no longer needed - AI content is rendered as-is
+    # display elsewhere in the app) so every string value inside it -
+    # nested lists included - comes out translated.
     analysis = st.session_state.get('ai_analysis')
     if analysis:
-        draw_bullet_card("Strengths", analysis.get('strengths', []))
-        draw_bullet_card("Opportunities", analysis.get('opportunities', []))
+        draw_bullet_card(_t("Strengths"), analysis.get('strengths', []))
+        draw_bullet_card(_t("Opportunities"), analysis.get('opportunities', []))
 
     # Full AI deep-dive report
     deep_dive = st.session_state.get('ai_deep_dive')
     if deep_dive:
-        draw_section("Career Overview", deep_dive.get("career_overview", ""))
-        draw_section("Future Scope", deep_dive.get("future_scope", ""))
-        draw_section("Technical Skills", deep_dive.get("technical_skills", []))
-        draw_section("Soft Skills", deep_dive.get("soft_skills", []))
+        draw_section(_t("Career Overview"), deep_dive.get("career_overview", ""))
+        draw_section(_t("Future Scope"), deep_dive.get("future_scope", ""))
+        draw_section(_t("Technical Skills"), deep_dive.get("technical_skills", []))
+        draw_section(_t("Soft Skills"), deep_dive.get("soft_skills", []))
 
         # MODIFICATION (PDF charts): Technical Skills vs Soft Skills pie
         # chart - purely a visual count comparison of the two skill lists
@@ -2728,39 +3308,39 @@ def generate_pdf_report():
             chart_fig_w_in = (content_width() - 12) / 25.4
             draw_chart_card(
                 pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
-                PDF_WHITE, CARD_BORDER, "Technical Skills vs Soft Skills",
+                PDF_WHITE, CARD_BORDER, _t("Technical Skills vs Soft Skills"),
                 chart_skills_pie(tech_count, soft_count, chart_fig_w_in),
                 chart_fig_w_in,
             )
 
-        draw_section("Major Hiring Cities in India", deep_dive.get("major_hiring_cities_india", []))
-        draw_section("Major Industry Hubs", deep_dive.get("major_industry_hubs", []))
-        draw_section("Top Hiring Industries", deep_dive.get("top_hiring_industries", []))
+        draw_section(_t("Major Hiring Cities in India"), deep_dive.get("major_hiring_cities_india", []))
+        draw_section(_t("Major Industry Hubs"), deep_dive.get("major_industry_hubs", []))
+        draw_section(_t("Top Hiring Industries"), deep_dive.get("top_hiring_industries", []))
 
         # education_path is a structured object, shaped differently for
         # school vs college students - render each sub-field as its own
         # mini-section instead of dumping the raw dict.
         education_path = deep_dive.get("education_path", {}) or {}
         if st.session_state.user_type == 'school':
-            draw_section("Recommended Stream", education_path.get("recommended_stream", ""))
-            draw_section("Undergraduate Degree", education_path.get("undergraduate_degree", ""))
-            draw_section("Higher Studies", education_path.get("higher_studies", ""))
-            draw_section("Certifications (Education Path)", education_path.get("certifications", []))
+            draw_section(_t("Recommended Stream"), education_path.get("recommended_stream", ""))
+            draw_section(_t("Undergraduate Degree"), education_path.get("undergraduate_degree", ""))
+            draw_section(_t("Higher Studies"), education_path.get("higher_studies", ""))
+            draw_section(_t("Certifications (Education Path)"), education_path.get("certifications", []))
         else:
-            draw_section("Higher Education Options", education_path.get("higher_education_options", ""))
-            draw_section("Professional Certifications", education_path.get("professional_certifications", []))
-            draw_section("Specializations", education_path.get("specializations", []))
-            draw_section("Career Advancement", education_path.get("career_advancement", ""))
+            draw_section(_t("Higher Education Options"), education_path.get("higher_education_options", ""))
+            draw_section(_t("Professional Certifications"), education_path.get("professional_certifications", []))
+            draw_section(_t("Specializations"), education_path.get("specializations", []))
+            draw_section(_t("Career Advancement"), education_path.get("career_advancement", ""))
 
         # learning_resources is also a structured object with 5 categories.
         learning_resources = deep_dive.get("learning_resources", {}) or {}
-        draw_section("Recommended Certifications", learning_resources.get("recommended_certifications", []))
-        draw_section("Free Learning Resources", learning_resources.get("free_learning_resources", []))
-        draw_section("Online Platforms", learning_resources.get("online_platforms", []))
-        draw_section("Books", learning_resources.get("books", []))
-        draw_section("Communities", learning_resources.get("communities", []))
+        draw_section(_t("Recommended Certifications"), learning_resources.get("recommended_certifications", []))
+        draw_section(_t("Free Learning Resources"), learning_resources.get("free_learning_resources", []))
+        draw_section(_t("Online Platforms"), learning_resources.get("online_platforms", []))
+        draw_section(_t("Books"), learning_resources.get("books", []))
+        draw_section(_t("Communities"), learning_resources.get("communities", []))
 
-        draw_section("Related Career Roles", deep_dive.get("related_career_roles", []))
+        draw_section(_t("Related Career Roles"), deep_dive.get("related_career_roles", []))
 
     # ==================================================================
     # MODIFICATION (Career Role Deep Dive / Top 10 Related Roles): if the
@@ -2779,28 +3359,32 @@ def generate_pdf_report():
     # ==================================================================
     explored_role_name = st.session_state.get('selected_career_role')
     explored_role_detail = st.session_state.get('ai_role_detail')
+    # MODIFICATION (i18n): translated display copy of the role name, used
+    # everywhere it's rendered below; not used for any session-state
+    # lookups (those are keyed by fixed strings like 'ai_role_detail').
+    explored_role_name_t = _t(explored_role_name) if explored_role_name else explored_role_name
 
     if explored_role_name and explored_role_detail:
         pdf.add_page()
-        draw_title_bar(f"Career Role Deep Dive: {explored_role_name}")
+        draw_title_bar(f"{_t('Career Role Deep Dive')}: {explored_role_name_t}")
 
-        draw_text_card("Career Overview", explored_role_detail.get("career_description", ""))
-        draw_bullet_card("Required Skills", explored_role_detail.get("required_skills", []))
+        draw_text_card(_t("Career Overview"), explored_role_detail.get("career_description", ""))
+        draw_bullet_card(_t("Required Skills"), explored_role_detail.get("required_skills", []))
         draw_text_card(
-            "Salary Range & Future Scope",
-            f"Salary Range (India): {explored_role_detail.get('salary_range_india', 'Not available')}\n\n"
-            f"Future Scope: {explored_role_detail.get('future_demand') or explored_role_detail.get('future_job_growth') or 'Not available'}",
+            _t("Salary Range & Future Scope"),
+            f"{_t('Salary Range (India)')}: {explored_role_detail.get('salary_range_india') or _t('Not available')}\n\n"
+            f"{_t('Future Scope')}: {explored_role_detail.get('future_demand') or explored_role_detail.get('future_job_growth') or _t('Not available')}",
         )
-        draw_bullet_card("Top Companies", explored_role_detail.get("top_hiring_companies", []))
+        draw_bullet_card(_t("Top Companies"), explored_role_detail.get("top_hiring_companies", []))
 
         # ---- Skill Gap Analysis sub-section (reuses cached data + the
         # existing progress-bar chart helpers, exactly as already shown
         # on the "AI Skill Gap Analysis" page for this role). ----
         role_skill_gap = st.session_state.get('skill_gap_analysis')
-        draw_title_bar(f"Skill Gap Analysis: {explored_role_name}")
+        draw_title_bar(f"{_t('Skill Gap Analysis')}: {explored_role_name_t}")
         if role_skill_gap:
             readiness_score = role_skill_gap.get('overall_readiness_score', 0) or 0
-            draw_text_card(f"Overall Career Readiness: {readiness_score}%", role_skill_gap.get("readiness_summary", ""))
+            draw_text_card(f"{_t('Overall Career Readiness')}: {readiness_score}%", role_skill_gap.get("readiness_summary", ""))
 
             readiness_strengths_for_chart = [
                 (item.get('skill_name', ''), item.get('proficiency_score', 0))
@@ -2809,12 +3393,12 @@ def generate_pdf_report():
             chart_fig_w_in = (content_width() - 12) / 25.4
             draw_chart_card(
                 pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
-                PDF_WHITE, CARD_BORDER, "Career Readiness",
+                PDF_WHITE, CARD_BORDER, _t("Career Readiness"),
                 chart_career_readiness(readiness_score, readiness_strengths_for_chart, chart_fig_w_in),
                 chart_fig_w_in,
             )
 
-            draw_bullet_card("Missing Skills", [
+            draw_bullet_card(_t("Missing Skills"), [
                 f"[{item.get('importance', '')}] {item.get('skill_name', '')}: {item.get('explanation', '')}"
                 for item in role_skill_gap.get('missing_skills', [])
             ])
@@ -2827,25 +3411,27 @@ def generate_pdf_report():
                 chart_fig_w_in = (content_width() - 12) / 25.4
                 draw_chart_card(
                     pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
-                    PDF_WHITE, CARD_BORDER, "Skill Gap Progress Visualization",
+                    PDF_WHITE, CARD_BORDER, _t("Skill Gap Progress Visualization"),
                     chart_skill_gap(skill_gap_items_for_chart, chart_fig_w_in),
                     chart_fig_w_in,
                 )
         else:
             draw_text_card(
-                "Skill Gap Analysis",
-                f"This section has not been generated yet in this session - visit "
-                f'"View AI Skill Gap Analysis for {explored_role_name}" first to include it here.',
+                _t("Skill Gap Analysis"),
+                _t(
+                    f"This section has not been generated yet in this session - visit "
+                    f'"View AI Skill Gap Analysis for {explored_role_name}" first to include it here.'
+                ),
             )
 
         # ---- Learning Roadmap sub-section (reuses cached data + the
         # existing timeline chart helper, exactly as already shown on the
         # "12-Month Learning Roadmap" page for this role). ----
         role_roadmap = st.session_state.get('learning_roadmap')
-        draw_title_bar(f"Learning Roadmap: {explored_role_name}")
+        draw_title_bar(f"{_t('Learning Roadmap')}: {explored_role_name_t}")
         certifications, resources = [], []
         if role_roadmap:
-            draw_text_card("Roadmap Overview", role_roadmap.get("roadmap_overview", ""))
+            draw_text_card(_t("Roadmap Overview"), role_roadmap.get("roadmap_overview", ""))
 
             roadmap_months_for_chart = [
                 (m.get('month_number', ''), m.get('month_title', ''))
@@ -2855,13 +3441,13 @@ def generate_pdf_report():
                 chart_fig_w_in = (content_width() - 12) / 25.4
                 draw_chart_card(
                     pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
-                    PDF_WHITE, CARD_BORDER, "Learning Roadmap Progress Timeline",
+                    PDF_WHITE, CARD_BORDER, _t("Learning Roadmap Progress Timeline"),
                     chart_roadmap_timeline(roadmap_months_for_chart, chart_fig_w_in),
                     chart_fig_w_in,
                 )
 
-            draw_bullet_card("Month-by-Month Plan", [
-                f"Month {m.get('month_number', '')}: {m.get('month_title', '')}"
+            draw_bullet_card(_t("Month-by-Month Plan"), [
+                f"{_t('Month')} {m.get('month_number', '')}: {m.get('month_title', '')}"
                 for m in role_roadmap.get('months', [])
             ])
 
@@ -2880,9 +3466,11 @@ def generate_pdf_report():
                         resources.append(r)
         else:
             draw_text_card(
-                "Learning Roadmap",
-                f"This section has not been generated yet in this session - visit "
-                f'"View 12-Month Roadmap for {explored_role_name}" first to include it here.',
+                _t("Learning Roadmap"),
+                _t(
+                    f"This section has not been generated yet in this session - visit "
+                    f'"View 12-Month Roadmap for {explored_role_name}" first to include it here.'
+                ),
             )
 
         # Fall back to the stream-level learning resources (already
@@ -2894,14 +3482,14 @@ def generate_pdf_report():
             lr = (deep_dive.get("learning_resources", {}) or {}) if deep_dive else {}
             resources = (lr.get("free_learning_resources", []) or []) + (lr.get("online_platforms", []) or [])
 
-        draw_bullet_card("Certifications", certifications)
-        draw_bullet_card("Learning Resources", resources)
+        draw_bullet_card(_t("Certifications"), certifications)
+        draw_bullet_card(_t("Learning Resources"), resources)
 
     else:
         # ---- Top 10 Related Career Roles (auto-generated for the
         # recommended stream since no specific role has been explored). ----
         pdf.add_page()
-        draw_title_bar(f"Top 10 Related Career Roles: {stream_name}")
+        draw_title_bar(f"{_t('Top 10 Related Career Roles')}: {stream_name_t}")
 
         student_details_for_roles = {"name": st.session_state.get('student_name', '')}
         top10_roles = generate_top10_related_roles(
@@ -2911,21 +3499,21 @@ def generate_pdf_report():
         if top10_roles:
             for i, role in enumerate(top10_roles, start=1):
                 draw_title_bar(f"{i}. {role.get('role_name', '')}")
-                draw_text_card("Overview", role.get("short_description", ""))
+                draw_text_card(_t("Overview"), role.get("short_description", ""))
                 draw_text_card(
-                    "Salary Range & Future Scope",
-                    f"Salary Range (India): {role.get('salary_range_india', 'Not available')}\n\n"
-                    f"Future Scope: {role.get('future_scope', 'Not available')}",
+                    _t("Salary Range & Future Scope"),
+                    f"{_t('Salary Range (India)')}: {role.get('salary_range_india') or _t('Not available')}\n\n"
+                    f"{_t('Future Scope')}: {role.get('future_scope') or _t('Not available')}",
                 )
-                draw_bullet_card("Required Skills", role.get("required_skills", []))
+                draw_bullet_card(_t("Required Skills"), role.get("required_skills", []))
         else:
             # Graceful fallback: reuse whichever plain role-name list is
             # already cached from the AI deep-dive, so this section is
             # never blank even if the extra AI call above is unavailable.
             fallback_names = (st.session_state.get('ai_deep_dive') or {}).get("related_career_roles", [])
             draw_bullet_card(
-                "Related Career Roles",
-                fallback_names or ["Related career role details are not available yet for this stream."],
+                _t("Related Career Roles"),
+                [_t(n) for n in fallback_names] if fallback_names else [_t("Related career role details are not available yet for this stream.")],
             )
 
     # Save to temporary file
@@ -2961,6 +3549,14 @@ def generate_role_detail_pdf(role_name, stream_name):
     skill_gap = st.session_state.get('skill_gap_analysis')
     resume = st.session_state.get('resume_suggestions')
 
+    # MODIFICATION (i18n): translate the AI-generated content dicts once
+    # (no longer needed - AI content is rendered as-is
+    # display elsewhere in the app), and build translated display copies
+    # of role_name/stream_name - both parameters are only ever used for
+    # display in this function, never for a session-state lookup key.
+    role_name = _t(role_name) if role_name else role_name
+    stream_name = _t(stream_name) if stream_name else stream_name
+
     # ------------------------------------------------------------------
     # Shared design tokens - identical brand palette to generate_pdf_report()
     # ------------------------------------------------------------------
@@ -2989,7 +3585,7 @@ def generate_role_detail_pdf(role_name, stream_name):
             self.set_xy(0, 2.2)
             self.set_font('helvetica', '', 8)
             self.set_text_color(180, 230, 240)
-            self.cell(self.w - CONTENT_MARGIN, 6, 'AI Career Guidance & Career Counselling System', align='R')
+            self.cell(self.w - CONTENT_MARGIN, 6, _t('AI Career Guidance & Career Counselling System'), align='R')
 
             self.set_y(20)
 
@@ -3002,12 +3598,12 @@ def generate_role_detail_pdf(role_name, stream_name):
             self.set_font('helvetica', '', 8)
             self.set_text_color(*LABEL_MUTED)
             self.cell(self.w - 2 * CONTENT_MARGIN, 4.6,
-                      'CoActions  -  AI Career Guidance & Career Counselling System', align='L')
+                      f"CoActions  -  {_t('AI Career Guidance & Career Counselling System')}", align='L')
 
             self.set_xy(0, self.h - 16)
             self.set_font('helvetica', '', 8)
             self.set_text_color(*LABEL_MUTED)
-            self.cell(self.w - CONTENT_MARGIN, 4.6, f'Page {self.page_no()} of {{nb}}', align='R')
+            self.cell(self.w - CONTENT_MARGIN, 4.6, f"{_t('Page')} {self.page_no()} {_t('of')} {{nb}}", align='R')
 
     pdf = PDF()
     pdf.alias_nb_pages()  # enables "Page X of {nb}" in the footer
@@ -3015,11 +3611,9 @@ def generate_role_detail_pdf(role_name, stream_name):
     pdf.set_auto_page_break(True, margin=24)
     pdf.add_page()
 
-    try:
-        pdf.add_font('helvetica', '', 'helvetica.ttf', uni=True)
-        pdf.set_font('helvetica', '', 12)
-    except Exception:
-        pdf.set_font('helvetica', '', 12)
+    # MODIFICATION (i18n): registers a font matching the selected UI
+    # language (falls back to helvetica.ttf / built-in helvetica).
+    _register_pdf_font(pdf)
 
     def clean_text(text):
         emoji_pattern = re.compile("["
@@ -3034,7 +3628,8 @@ def generate_role_detail_pdf(role_name, stream_name):
             "]+", flags=re.UNICODE)
         text = emoji_pattern.sub(r'', str(text))
         text = text.replace('•', '-').replace('●', '-').replace('○', '-')
-        text = text.encode('ascii', 'ignore').decode('ascii')
+        # MODIFICATION (i18n): kept non-ASCII characters instead of
+        # stripping them - see matching note in generate_pdf_report().
         return text.strip()
 
     # ------------------------------------------------------------------
@@ -3078,7 +3673,7 @@ def generate_role_detail_pdf(role_name, stream_name):
         pdf.set_xy(x + 5, y)
         pdf.set_font('helvetica', 'B', 10)
         pdf.set_text_color(*DARK_BLUE)
-        pdf.cell(w - 10, bar_h, clean_text(f"MONTH {month_num}  -  {month_title}"), align='L')
+        pdf.cell(w - 10, bar_h, clean_text(f"{_t('MONTH')} {month_num}  -  {month_title}"), align='L')
         pdf.set_xy(x, y + bar_h + 3)
 
     def draw_kv_card(title, pairs, big_title=False):
@@ -3113,7 +3708,7 @@ def generate_role_detail_pdf(role_name, stream_name):
         pdf.set_xy(x, y + card_h + 8)
 
     def draw_text_card(title, text):
-        body = clean_text(str(text)) if text not in (None, "") else "Not available."
+        body = clean_text(str(text)) if text not in (None, "") else clean_text(_t("Not available."))
         pad = 6
         inner_w = content_width() - 2 * pad
         line_h = 5.6
@@ -3138,7 +3733,7 @@ def generate_role_detail_pdf(role_name, stream_name):
     def draw_bullet_card(title, items, with_title_bar=True):
         items = [clean_text(str(i)) for i in (items or []) if str(i).strip()]
         if not items:
-            items = ["Not available."]
+            items = [clean_text(_t("Not available."))]
         pad = 6
         bullet_indent = 5
         inner_w = content_width() - 2 * pad - bullet_indent
@@ -3201,43 +3796,43 @@ def generate_role_detail_pdf(role_name, stream_name):
 
     def not_generated_note(section_label, page_hint):
         draw_note_card(
-            f"{section_label} has not been generated yet in this session - visit \"{page_hint}\" first to include it here."
+            _t(f'{section_label} has not been generated yet in this session - visit "{page_hint}" first to include it here.')
         )
 
     # ---- Header: report title + student info card ----
     draw_kv_card(
-        "CoActions Career Detail Report",
+        f"CoActions {_t('Career Detail Report')}",
         [
-            ("Name", st.session_state.get('student_name', '')),
-            ("Grade / Year", st.session_state.get('student_grade', '')),
-            ("Stream", stream_name),
-            ("Career Role", role_name),
-            ("Date", datetime.now().strftime('%Y-%m-%d')),
+            (_t("Name"), st.session_state.get('student_name', '')),
+            (_t("Grade / Year"), st.session_state.get('student_grade', '')),
+            (_t("Stream"), stream_name),
+            (_t("Career Role"), role_name),
+            (_t("Date"), datetime.now().strftime('%Y-%m-%d')),
         ],
         big_title=True,
     )
 
     # ---- Section 1: Career Detail ----
-    draw_title_bar(f"Career Detail: {role_name}", big=True)
+    draw_title_bar(f"{_t('Career Detail')}: {role_name}", big=True)
     if detail:
-        draw_section("Career Description", detail.get("career_description", ""))
-        draw_section("Salary Range (India)", detail.get("salary_range_india", ""))
-        draw_section("Educational Requirements", detail.get("educational_requirements", []))
-        draw_section("Required Skills", detail.get("required_skills", []))
-        draw_section("Job Responsibilities", detail.get("job_responsibilities", []))
-        draw_section("Job Growth", detail.get("future_job_growth", ""))
-        draw_section("Industry Outlook", detail.get("industry_outlook", ""))
-        draw_section("Top Hiring Companies", detail.get("top_hiring_companies", []))
-        draw_section("Future Demand", detail.get("future_demand", ""))
+        draw_section(_t("Career Description"), detail.get("career_description", ""))
+        draw_section(_t("Salary Range (India)"), detail.get("salary_range_india", ""))
+        draw_section(_t("Educational Requirements"), detail.get("educational_requirements", []))
+        draw_section(_t("Required Skills"), detail.get("required_skills", []))
+        draw_section(_t("Job Responsibilities"), detail.get("job_responsibilities", []))
+        draw_section(_t("Job Growth"), detail.get("future_job_growth", ""))
+        draw_section(_t("Industry Outlook"), detail.get("industry_outlook", ""))
+        draw_section(_t("Top Hiring Companies"), detail.get("top_hiring_companies", []))
+        draw_section(_t("Future Demand"), detail.get("future_demand", ""))
     else:
-        not_generated_note("Career Detail", "Career Detail")
+        not_generated_note(_t("Career Detail"), _t("Career Detail"))
 
     # ---- Section 2: 12-Month Learning Roadmap ----
     pdf.add_page()
-    draw_title_bar(f"12-Month Learning Roadmap: {role_name}", big=True)
+    draw_title_bar(f"{_t('12-Month Learning Roadmap')}: {role_name}", big=True)
     if roadmap:
-        level_label = "Beginner Level" if st.session_state.user_type == 'school' else "Advanced / Industry Level"
-        draw_section(f"Roadmap Overview ({level_label})", roadmap.get("roadmap_overview", ""))
+        level_label = _t("Beginner Level") if st.session_state.user_type == 'school' else _t("Advanced / Industry Level")
+        draw_section(f"{_t('Roadmap Overview')} ({level_label})", roadmap.get("roadmap_overview", ""))
 
         # MODIFICATION (PDF charts): Learning Roadmap Progress Timeline -
         # a horizontal timeline of the same months detailed below, giving
@@ -3250,7 +3845,7 @@ def generate_role_detail_pdf(role_name, stream_name):
             chart_fig_w_in = (content_width() - 12) / 25.4
             draw_chart_card(
                 pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
-                PDF_WHITE, CARD_BORDER, "Learning Roadmap Progress Timeline",
+                PDF_WHITE, CARD_BORDER, _t("Learning Roadmap Progress Timeline"),
                 chart_roadmap_timeline(roadmap_months_for_chart, chart_fig_w_in),
                 chart_fig_w_in,
             )
@@ -3258,21 +3853,21 @@ def generate_role_detail_pdf(role_name, stream_name):
         for month in roadmap.get('months', []):
             month_num = month.get('month_number', '')
             draw_month_divider(month_num, month.get('month_title', ''))
-            draw_section("Skills to Learn", month.get("skills_to_learn", []))
-            draw_section("Topics", month.get("topics", []))
-            draw_section("Practice Activities", month.get("practice_activities", []))
-            draw_section("Mini Projects", month.get("mini_projects", []))
-            draw_section("Recommended Free Resources", month.get("free_resources", []))
-            draw_section("Certifications", month.get("certifications", []))
+            draw_section(_t("Skills to Learn"), month.get("skills_to_learn", []))
+            draw_section(_t("Topics"), month.get("topics", []))
+            draw_section(_t("Practice Activities"), month.get("practice_activities", []))
+            draw_section(_t("Mini Projects"), month.get("mini_projects", []))
+            draw_section(_t("Recommended Free Resources"), month.get("free_resources", []))
+            draw_section(_t("Certifications"), month.get("certifications", []))
     else:
-        not_generated_note("The 12-Month Learning Roadmap", f"View 12-Month Roadmap for {role_name}")
+        not_generated_note(_t("The 12-Month Learning Roadmap"), f"{_t('View 12-Month Roadmap for')} {role_name}")
 
     # ---- Section 3: AI Skill Gap Analysis ----
     pdf.add_page()
-    draw_title_bar(f"AI Skill Gap Analysis: {role_name}", big=True)
+    draw_title_bar(f"{_t('AI Skill Gap Analysis')}: {role_name}", big=True)
     if skill_gap:
         readiness_score = skill_gap.get('overall_readiness_score', 0) or 0
-        draw_text_card(f"Overall Career Readiness: {readiness_score}%", skill_gap.get("readiness_summary", ""))
+        draw_text_card(f"{_t('Overall Career Readiness')}: {readiness_score}%", skill_gap.get("readiness_summary", ""))
 
         # MODIFICATION (PDF charts): Progress Bars for Career Readiness -
         # visualises the same overall_readiness_score above plus each
@@ -3285,24 +3880,24 @@ def generate_role_detail_pdf(role_name, stream_name):
         chart_fig_w_in = (content_width() - 12) / 25.4
         draw_chart_card(
             pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
-            PDF_WHITE, CARD_BORDER, "Career Readiness",
+            PDF_WHITE, CARD_BORDER, _t("Career Readiness"),
             chart_career_readiness(readiness_score, readiness_strengths_for_chart, chart_fig_w_in),
             chart_fig_w_in,
         )
 
-        draw_bullet_card("Current Strengths", [
+        draw_bullet_card(_t("Current Strengths"), [
             f"{item.get('skill_name', '')} ({item.get('proficiency_score', 0)}%): {item.get('explanation', '')}"
             for item in skill_gap.get('current_strengths', [])
         ])
-        draw_bullet_card("Missing Skills", [
+        draw_bullet_card(_t("Missing Skills"), [
             f"[{item.get('importance', '')}] {item.get('skill_name', '')}: {item.get('explanation', '')}"
             for item in skill_gap.get('missing_skills', [])
         ])
-        draw_bullet_card("Priority Skills", [
+        draw_bullet_card(_t("Priority Skills"), [
             f"#{item.get('priority_rank', '')} {item.get('skill_name', '')}: {item.get('reason', '')}"
             for item in skill_gap.get('priority_skills', [])
         ])
-        draw_bullet_card("Learning Difficulty", [
+        draw_bullet_card(_t("Learning Difficulty"), [
             f"{item.get('skill_name', '')} ({item.get('difficulty_label', '')}, {item.get('difficulty_score', 0)}%): {item.get('reason', '')}"
             for item in skill_gap.get('learning_difficulty', [])
         ])
@@ -3319,60 +3914,60 @@ def generate_role_detail_pdf(role_name, stream_name):
             chart_fig_w_in = (content_width() - 12) / 25.4
             draw_chart_card(
                 pdf, ensure_space, draw_title_bar, content_width, CONTENT_MARGIN,
-                PDF_WHITE, CARD_BORDER, "Skill Gap Progress Visualization",
+                PDF_WHITE, CARD_BORDER, _t("Skill Gap Progress Visualization"),
                 chart_skill_gap(skill_gap_items_for_chart, chart_fig_w_in),
                 chart_fig_w_in,
             )
 
-        draw_bullet_card("Recommended Learning Order", [
+        draw_bullet_card(_t("Recommended Learning Order"), [
             f"{item.get('order', '')}. {item.get('skill_name', '')}: {item.get('rationale', '')}"
             for item in skill_gap.get('recommended_learning_order', [])
         ])
-        draw_bullet_card("Estimated Learning Time", [
+        draw_bullet_card(_t("Estimated Learning Time"), [
             f"{item.get('skill_name', '')}: {item.get('estimated_duration', '')} ({item.get('weekly_commitment', '')})"
             for item in skill_gap.get('estimated_learning_time', [])
         ])
     else:
-        not_generated_note("The AI Skill Gap Analysis", f"View AI Skill Gap Analysis for {role_name}")
+        not_generated_note(_t("The AI Skill Gap Analysis"), f"{_t('View AI Skill Gap Analysis for')} {role_name}")
 
     # ---- Section 4: AI Resume Suggestions ----
     pdf.add_page()
-    draw_title_bar(f"AI Resume Suggestions: {role_name}", big=True)
+    draw_title_bar(f"{_t('AI Resume Suggestions')}: {role_name}", big=True)
     if resume:
-        draw_bullet_card("Resume Headline Options", [
-            f"Option {idx}: {headline}"
+        draw_bullet_card(_t("Resume Headline Options"), [
+            f"{_t('Option')} {idx}: {headline}"
             for idx, headline in enumerate(resume.get('resume_headline', []), start=1)
         ])
-        draw_bullet_card("Career Objective Options", [
-            f"Option {idx}: {objective}"
+        draw_bullet_card(_t("Career Objective Options"), [
+            f"{_t('Option')} {idx}: {objective}"
             for idx, objective in enumerate(resume.get('career_objective', []), start=1)
         ])
-        draw_bullet_card("Key Skills to Feature", [
+        draw_bullet_card(_t("Key Skills to Feature"), [
             f"{item.get('skill_name', '')}: {item.get('reason', '')}"
             for item in resume.get('key_skills', [])
         ])
-        draw_bullet_card("Projects to Include", [
+        draw_bullet_card(_t("Projects to Include"), [
             f"{item.get('project_title', '')}: {item.get('description', '')} ({item.get('relevance', '')})"
             for item in resume.get('projects_to_include', [])
         ])
-        draw_bullet_card("Certifications", [
+        draw_bullet_card(_t("Certifications"), [
             f"{item.get('certification_name', '')}: {item.get('reason', '')}"
             for item in resume.get('certifications', [])
         ])
-        draw_bullet_card("Achievements to Pursue/Highlight", [
+        draw_bullet_card(_t("Achievements to Pursue/Highlight"), [
             f"{item.get('suggestion', '')}: {item.get('reason', '')}"
             for item in resume.get('achievements', [])
         ])
-        draw_bullet_card("Portfolio Suggestions", [
+        draw_bullet_card(_t("Portfolio Suggestions"), [
             f"{item.get('suggestion', '')} ({item.get('platform_or_format', '')}): {item.get('reason', '')}"
             for item in resume.get('portfolio_suggestions', [])
         ])
-        draw_bullet_card("Internship Suggestions", [
+        draw_bullet_card(_t("Internship Suggestions"), [
             f"{item.get('internship_type', '')}: {item.get('reason', '')}"
             for item in resume.get('internship_suggestions', [])
         ])
     else:
-        not_generated_note("AI Resume Suggestions", f"Get AI Resume Suggestions for {role_name}")
+        not_generated_note(_t("AI Resume Suggestions"), f"{_t('Get AI Resume Suggestions for')} {role_name}")
 
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
     pdf.output(temp_file.name)
@@ -3639,11 +4234,11 @@ def check_gemini_connection(model_name: str = "gemini-2.5-flash"):
         response = model.generate_content("Reply with the single word: OK")
         reply_text = (getattr(response, "text", "") or "").strip()
         if reply_text:
-            return {"connected": True, "message": "Gemini API connection successful."}
+            return {"connected": True, "message": _t("Gemini API connection successful.")}
         return {
             "connected": False,
-            "message": "Gemini API responded but returned no content. "
-                        "The connection may be unstable.",
+            "message": _t("Gemini API responded but returned no content. "
+                        "The connection may be unstable."),
         }
     except Exception as e:
         return {
@@ -3845,6 +4440,13 @@ def generate_validated_json(model, prompt, max_output_tokens, label, validator=N
         failure) so callers can continue to store it in session_state for
         debugging, exactly as before.
     """
+    # MODIFICATION (Gemini multilingual prompts): prepend the selected
+    # language instruction before sending the prompt to Gemini, so the
+    # response is generated directly in that language. Only the language
+    # instruction is added - the rest of the prompt (schema/output format)
+    # is untouched.
+    prompt = f"{_gemini_language_instruction()}\n\n{prompt}"
+
     last_response_text = ""
 
     for attempt in (1, 2):
@@ -4145,7 +4747,7 @@ def generate_ai_help_guide(force_refresh=False):
 
     if data is None:
         st.session_state.ai_help_guide = None
-        st.session_state.ai_help_guide_status = (
+        st.session_state.ai_help_guide_status = _t(
             "The AI Help Guide is temporarily unavailable. Please try again in a moment."
         )
         return {"status": "error", "message": st.session_state.ai_help_guide_status}
@@ -4164,7 +4766,7 @@ def generate_help_search_answer(user_question):
     """
     user_question = (user_question or "").strip()
     if not user_question:
-        return {"status": "error", "message": "Please type a question first."}
+        return {"status": "error", "message": _t("Please type a question first.")}
 
     try:
         model = get_gemini_client()
@@ -4184,6 +4786,10 @@ Answer the question directly. If the question is unrelated to using this
 app, politely say you can only help with questions about using the AI
 Career Guidance Platform."""
 
+    # MODIFICATION (Gemini multilingual prompts): prepend the selected
+    # language instruction before sending the prompt to Gemini.
+    prompt = f"{_gemini_language_instruction()}\n\n{prompt}"
+
     try:
         response = model.generate_content(
             prompt,
@@ -4194,10 +4800,10 @@ Career Guidance Platform."""
         )
         answer_text = (getattr(response, "text", "") or "").strip()
     except Exception as e:
-        return {"status": "error", "message": f"Gemini call failed: {str(e)}"}
+        return {"status": "error", "message": f"{_t('Gemini call failed:')} {str(e)}"}
 
     if not answer_text:
-        return {"status": "error", "message": "AI did not return an answer. Please try again."}
+        return {"status": "error", "message": _t("AI did not return an answer. Please try again.")}
 
     return {"status": "success", "answer": answer_text}
 
@@ -4484,8 +5090,8 @@ def generate_ai_recommendation(student_details, questionnaire_responses, persona
 
     Returns:
         dict: A status payload, e.g.
-            {"status": "success", "message": "..."} or
-            {"status": "error", "message": "..."}
+            {"status": "success", "message": _t("...")} or
+            {"status": "error", "message": _t("...")}
         The actual AI-generated Top 3 recommendations (if any) are stored
         separately in st.session_state.ai_top_streams as a list of
         {"stream_name", "match_percentage", "explanation"} dicts - this is
@@ -4516,8 +5122,8 @@ def generate_ai_recommendation(student_details, questionnaire_responses, persona
         st.session_state.ai_top_streams = None
         return {
             "status": "error",
-            "message": "AI recommendations are temporarily unavailable "
-                        "(Gemini API is not configured). Please try again later.",
+            "message": _t("AI recommendations are temporarily unavailable "
+                        "(Gemini API is not configured). Please try again later."),
         }
 
     try:
@@ -4565,8 +5171,8 @@ def generate_ai_recommendation(student_details, questionnaire_responses, persona
             )
             return {
                 "status": "error",
-                "message": "AI recommendations could not be generated right now. "
-                            "Please try again later.",
+                "message": _t("AI recommendations could not be generated right now. "
+                            "Please try again later."),
             }
 
         # `data` here is ALREADY the fully-validated, normalised list of
@@ -4577,7 +5183,7 @@ def generate_ai_recommendation(student_details, questionnaire_responses, persona
         st.session_state.gemini_response_error = None
         return {
             "status": "success",
-            "message": "Your personalized AI recommendations have been generated.",
+            "message": _t("Your personalized AI recommendations have been generated."),
         }
     except Exception as e:
         st.session_state.gemini_response_raw = None
@@ -4585,8 +5191,8 @@ def generate_ai_recommendation(student_details, questionnaire_responses, persona
         st.session_state.ai_top_streams = None
         return {
             "status": "error",
-            "message": "Something went wrong while contacting the AI recommendation "
-                        "service. Please try again later.",
+            "message": _t("Something went wrong while contacting the AI recommendation "
+                        "service. Please try again later."),
         }
 
 
@@ -4746,7 +5352,7 @@ def generate_ai_analysis(student_details, questionnaire_responses, personality_r
     except GeminiConfigError as e:
         st.session_state.ai_analysis = None
         st.session_state.ai_analysis_error = str(e)
-        return {"status": "error", "message": "AI Analysis is temporarily unavailable. Please try again later."}
+        return {"status": "error", "message": _t("AI Analysis is temporarily unavailable. Please try again later.")}
 
     try:
         data, response_text = generate_validated_json(
@@ -4763,18 +5369,18 @@ def generate_ai_analysis(student_details, questionnaire_responses, personality_r
             )
             return {
                 "status": "error",
-                "message": "AI Analysis could not be generated right now. Please try again later.",
+                "message": _t("AI Analysis could not be generated right now. Please try again later."),
             }
 
         st.session_state.ai_analysis = data
         st.session_state.ai_analysis_error = None
-        return {"status": "success", "message": "AI Analysis generated."}
+        return {"status": "success", "message": _t("AI Analysis generated.")}
     except Exception as e:
         st.session_state.ai_analysis = None
         st.session_state.ai_analysis_error = str(e)
         return {
             "status": "error",
-            "message": "Something went wrong while generating your AI Analysis. Please try again later.",
+            "message": _t("Something went wrong while generating your AI Analysis. Please try again later."),
         }
 
 
@@ -4941,7 +5547,7 @@ def generate_career_overview(student_details, questionnaire_responses, personali
     except GeminiConfigError as e:
         st.session_state.career_overview = None
         st.session_state.career_overview_error = str(e)
-        return {"status": "error", "message": "Career Overview is temporarily unavailable. Please try again later."}
+        return {"status": "error", "message": _t("Career Overview is temporarily unavailable. Please try again later.")}
 
     try:
         data, response_text = generate_validated_json(
@@ -4958,18 +5564,18 @@ def generate_career_overview(student_details, questionnaire_responses, personali
             )
             return {
                 "status": "error",
-                "message": "Career Overview could not be generated right now. Please try again later.",
+                "message": _t("Career Overview could not be generated right now. Please try again later."),
             }
 
         st.session_state.career_overview = data
         st.session_state.career_overview_error = None
-        return {"status": "success", "message": "Career Overview generated."}
+        return {"status": "success", "message": _t("Career Overview generated.")}
     except Exception as e:
         st.session_state.career_overview = None
         st.session_state.career_overview_error = str(e)
         return {
             "status": "error",
-            "message": "Something went wrong while generating the Career Overview. Please try again later.",
+            "message": _t("Something went wrong while generating the Career Overview. Please try again later."),
         }
 
 
@@ -5169,7 +5775,7 @@ def generate_ai_deep_dive(student_details, questionnaire_responses, stream, user
     except GeminiConfigError as e:
         st.session_state.ai_deep_dive = None
         st.session_state.ai_deep_dive_error = str(e)
-        return {"status": "error", "message": "The AI career report is temporarily unavailable. Please try again later."}
+        return {"status": "error", "message": _t("The AI career report is temporarily unavailable. Please try again later.")}
 
     try:
         data, response_text = generate_validated_json(
@@ -5186,18 +5792,18 @@ def generate_ai_deep_dive(student_details, questionnaire_responses, stream, user
             )
             return {
                 "status": "error",
-                "message": "The full AI report could not be generated right now. Please try again later.",
+                "message": _t("The full AI report could not be generated right now. Please try again later."),
             }
 
         st.session_state.ai_deep_dive = data
         st.session_state.ai_deep_dive_error = None
-        return {"status": "success", "message": "Deep-dive report generated."}
+        return {"status": "success", "message": _t("Deep-dive report generated.")}
     except Exception as e:
         st.session_state.ai_deep_dive = None
         st.session_state.ai_deep_dive_error = str(e)
         return {
             "status": "error",
-            "message": "Something went wrong while generating your AI report. Please try again later.",
+            "message": _t("Something went wrong while generating your AI report. Please try again later."),
         }
 
 
@@ -5302,7 +5908,7 @@ def generate_ai_role_detail(student_details, role_name, stream, user_type):
     except GeminiConfigError as e:
         st.session_state.ai_role_detail = None
         st.session_state.ai_role_detail_error = str(e)
-        return {"status": "error", "message": "This role breakdown is temporarily unavailable. Please try again later."}
+        return {"status": "error", "message": _t("This role breakdown is temporarily unavailable. Please try again later.")}
 
     try:
         data, response_text = generate_validated_json(
@@ -5319,18 +5925,18 @@ def generate_ai_role_detail(student_details, role_name, stream, user_type):
             )
             return {
                 "status": "error",
-                "message": "This role breakdown could not be generated right now. Please try again later.",
+                "message": _t("This role breakdown could not be generated right now. Please try again later."),
             }
 
         st.session_state.ai_role_detail = data
         st.session_state.ai_role_detail_error = None
-        return {"status": "success", "message": "Role detail generated."}
+        return {"status": "success", "message": _t("Role detail generated.")}
     except Exception as e:
         st.session_state.ai_role_detail = None
         st.session_state.ai_role_detail_error = str(e)
         return {
             "status": "error",
-            "message": "Something went wrong while generating this role breakdown. Please try again later.",
+            "message": _t("Something went wrong while generating this role breakdown. Please try again later."),
         }
 
 
@@ -5658,7 +6264,7 @@ def generate_ai_learning_roadmap(student_details, questionnaire_responses, perso
     except GeminiConfigError as e:
         st.session_state.learning_roadmap = None
         st.session_state.learning_roadmap_error = str(e)
-        return {"status": "error", "message": "The learning roadmap is temporarily unavailable. Please try again later."}
+        return {"status": "error", "message": _t("The learning roadmap is temporarily unavailable. Please try again later.")}
 
     try:
         data, response_text = generate_validated_json(
@@ -5675,18 +6281,18 @@ def generate_ai_learning_roadmap(student_details, questionnaire_responses, perso
             )
             return {
                 "status": "error",
-                "message": "This learning roadmap could not be generated right now. Please try again later.",
+                "message": _t("This learning roadmap could not be generated right now. Please try again later."),
             }
 
         st.session_state.learning_roadmap = data
         st.session_state.learning_roadmap_error = None
-        return {"status": "success", "message": "Learning roadmap generated."}
+        return {"status": "success", "message": _t("Learning roadmap generated.")}
     except Exception as e:
         st.session_state.learning_roadmap = None
         st.session_state.learning_roadmap_error = str(e)
         return {
             "status": "error",
-            "message": "Something went wrong while generating this learning roadmap. Please try again later.",
+            "message": _t("Something went wrong while generating this learning roadmap. Please try again later."),
         }
 
 
@@ -5966,7 +6572,7 @@ def generate_ai_skill_gap_analysis(student_details, questionnaire_responses, per
     except GeminiConfigError as e:
         st.session_state.skill_gap_analysis = None
         st.session_state.skill_gap_analysis_error = str(e)
-        return {"status": "error", "message": "The skill gap analysis is temporarily unavailable. Please try again later."}
+        return {"status": "error", "message": _t("The skill gap analysis is temporarily unavailable. Please try again later.")}
 
     try:
         data, response_text = generate_validated_json(
@@ -5983,18 +6589,18 @@ def generate_ai_skill_gap_analysis(student_details, questionnaire_responses, per
             )
             return {
                 "status": "error",
-                "message": "This skill gap analysis could not be generated right now. Please try again later.",
+                "message": _t("This skill gap analysis could not be generated right now. Please try again later."),
             }
 
         st.session_state.skill_gap_analysis = data
         st.session_state.skill_gap_analysis_error = None
-        return {"status": "success", "message": "Skill gap analysis generated."}
+        return {"status": "success", "message": _t("Skill gap analysis generated.")}
     except Exception as e:
         st.session_state.skill_gap_analysis = None
         st.session_state.skill_gap_analysis_error = str(e)
         return {
             "status": "error",
-            "message": "Something went wrong while generating this skill gap analysis. Please try again later.",
+            "message": _t("Something went wrong while generating this skill gap analysis. Please try again later."),
         }
 
 
@@ -6214,7 +6820,7 @@ def generate_ai_resume_suggestions(student_details, career_name, user_type, skil
     except GeminiConfigError as e:
         st.session_state.resume_suggestions = None
         st.session_state.resume_suggestions_error = str(e)
-        return {"status": "error", "message": "Resume suggestions are temporarily unavailable. Please try again later."}
+        return {"status": "error", "message": _t("Resume suggestions are temporarily unavailable. Please try again later.")}
 
     try:
         data, response_text = generate_validated_json(
@@ -6231,18 +6837,18 @@ def generate_ai_resume_suggestions(student_details, career_name, user_type, skil
             )
             return {
                 "status": "error",
-                "message": "These resume suggestions could not be generated right now. Please try again later.",
+                "message": _t("These resume suggestions could not be generated right now. Please try again later."),
             }
 
         st.session_state.resume_suggestions = data
         st.session_state.resume_suggestions_error = None
-        return {"status": "success", "message": "Resume suggestions generated."}
+        return {"status": "success", "message": _t("Resume suggestions generated.")}
     except Exception as e:
         st.session_state.resume_suggestions = None
         st.session_state.resume_suggestions_error = str(e)
         return {
             "status": "error",
-            "message": "Something went wrong while generating these resume suggestions. Please try again later.",
+            "message": _t("Something went wrong while generating these resume suggestions. Please try again later."),
         }
 
 
@@ -6366,6 +6972,10 @@ by name if given). Each question must be under 12 words.
 Respond with ONLY the 6 questions, one per line, no numbering, no
 markdown, no preamble."""
 
+    # MODIFICATION (Gemini multilingual prompts): prepend the selected
+    # language instruction before sending the prompt to Gemini.
+    prompt = f"{_gemini_language_instruction()}\n\n{prompt}"
+
     try:
         response = model.generate_content(
             prompt,
@@ -6401,7 +7011,7 @@ def generate_chatbot_reply(user_message, context_text, conversation_history):
     """
     user_message = (user_message or "").strip()
     if not user_message:
-        return {"status": "error", "message": "Please type a question first."}
+        return {"status": "error", "message": _t("Please type a question first.")}
 
     try:
         model = get_gemini_client()
@@ -6441,6 +7051,10 @@ CONVERSATION SO FAR:
 Respond as the AI Career Assistant, replying to the student's most recent
 message above. Output ONLY your reply text."""
 
+    # MODIFICATION (Gemini multilingual prompts): prepend the selected
+    # language instruction before sending the prompt to Gemini.
+    prompt = f"{_gemini_language_instruction()}\n\n{prompt}"
+
     try:
         response = model.generate_content(
             prompt,
@@ -6454,7 +7068,7 @@ message above. Output ONLY your reply text."""
         return {"status": "error", "message": f"Something went wrong while getting a response. Please try again. ({str(e)})"}
 
     if not answer_text:
-        return {"status": "error", "message": "The AI didn't return an answer. Please try again."}
+        return {"status": "error", "message": _t("The AI didn't return an answer. Please try again.")}
 
     return {"status": "success", "answer": answer_text}
 
@@ -6496,9 +7110,9 @@ def show_header():
         st.image("logo.png", width=200)
     with col2:
         with st.container(key="header_menu_row"):
-            menu_col1, menu_col2, menu_col3, menu_col4, menu_col5 = st.columns(5)
+            menu_col1, menu_col2, menu_col3, menu_col4, menu_col5, menu_col6 = st.columns(6)
             with menu_col1:
-                if st.button("🏠 Home", key="menu_home", use_container_width=True):
+                if st.button(t("nav.home"), key="menu_home", use_container_width=True):
                     # Reset all session state for home
                     for key in list(st.session_state.keys()):
                         if key not in ['page', 'show_about', 'show_contact']:
@@ -6508,15 +7122,15 @@ def show_header():
                     st.session_state.show_contact = False
                     st.rerun()
             with menu_col2:
-                if st.button("📖 About", key="menu_about", use_container_width=True):
+                if st.button(t("nav.about"), key="menu_about", use_container_width=True):
                     st.session_state.show_about = True
                     st.session_state.show_contact = False
             with menu_col3:
-                if st.button("📞 Contact", key="menu_contact", use_container_width=True):
+                if st.button(t("nav.contact"), key="menu_contact", use_container_width=True):
                     st.session_state.show_contact = True
                     st.session_state.show_about = False
             with menu_col4:
-                if st.button("❓ Help", key="menu_help", use_container_width=True):
+                if st.button(t("nav.help"), key="menu_help", use_container_width=True):
                     # Remember which page we came from so "Back" can return the
                     # user to exactly where they were - Help never resets or
                     # touches any other assessment/session data.
@@ -6525,7 +7139,7 @@ def show_header():
                     st.session_state.page = 'help'
                     st.rerun()
             with menu_col5:
-                if st.button("🤖 AI Chat", key="menu_chatbot", use_container_width=True):
+                if st.button(t("nav.ai_chat"), key="menu_chatbot", use_container_width=True):
                     # Same "remember where we came from" pattern as Help -
                     # the chatbot never resets or touches any other
                     # assessment/session data either.
@@ -6533,6 +7147,616 @@ def show_header():
                         st.session_state.chatbot_return_page = st.session_state.page
                     st.session_state.page = 'career_chatbot'
                     st.rerun()
+            with menu_col6:
+                # MODIFICATION (Vocational Careers nav item): new top-nav
+                # button, styled identically to the other nav buttons
+                # (use_container_width=True, no custom CSS added). Uses the
+                # exact same session_state.page navigation pattern as
+                # Help/AI Chat above - no new Streamlit page, no
+                # st.switch_page(), just a session_state.page value the
+                # existing if/elif dispatcher in main() renders inline in
+                # the same content area. Remembers the return page so the
+                # eventual "Back" button on the section can restore
+                # wherever the user came from, without touching any other
+                # assessment/session data.
+                if st.button(_t("Vocational Careers"), key="menu_vocational", use_container_width=True):
+                    if st.session_state.page != 'vocational_careers':
+                        st.session_state.vocational_careers_return_page = st.session_state.page
+                    st.session_state.page = 'vocational_careers'
+                    st.rerun()
+
+# MODIFICATION (Vocational Careers search filters): static reference data
+# for the new State / City / Vocational Category dropdowns on the
+# Vocational Careers section. City options cascade off the selected
+# state (same "India-specific cascading state/city dropdown" pattern
+# used elsewhere). This is UI scaffolding only - no career data is
+# fetched or loaded from these selections yet.
+VOCATIONAL_STATE_CITIES = {
+    "Andhra Pradesh": ["Visakhapatnam", "Vijayawada", "Guntur", "Tirupati"],
+    "Arunachal Pradesh": ["Itanagar", "Naharlagun", "Pasighat"],
+    "Assam": ["Guwahati", "Dibrugarh", "Silchar", "Jorhat"],
+    "Bihar": ["Patna", "Gaya", "Bhagalpur", "Muzaffarpur"],
+    "Chhattisgarh": ["Raipur", "Bhilai", "Bilaspur", "Durg"],
+    "Goa": ["Panaji", "Margao", "Vasco da Gama"],
+    "Gujarat": ["Ahmedabad", "Surat", "Vadodara", "Rajkot"],
+    "Haryana": ["Gurugram", "Faridabad", "Panipat", "Ambala"],
+    "Himachal Pradesh": ["Shimla", "Dharamshala", "Solan"],
+    "Jharkhand": ["Ranchi", "Jamshedpur", "Dhanbad", "Bokaro"],
+    "Karnataka": ["Bengaluru", "Mysuru", "Mangaluru", "Hubballi"],
+    "Kerala": ["Kochi", "Thiruvananthapuram", "Kozhikode", "Thrissur"],
+    "Madhya Pradesh": ["Bhopal", "Indore", "Jabalpur", "Gwalior"],
+    "Maharashtra": ["Mumbai", "Pune", "Nagpur", "Nashik"],
+    "Manipur": ["Imphal"],
+    "Meghalaya": ["Shillong"],
+    "Mizoram": ["Aizawl"],
+    "Nagaland": ["Kohima", "Dimapur"],
+    "Odisha": ["Bhubaneswar", "Cuttack", "Rourkela"],
+    "Punjab": ["Ludhiana", "Amritsar", "Jalandhar", "Patiala"],
+    "Rajasthan": ["Jaipur", "Jodhpur", "Udaipur", "Kota"],
+    "Sikkim": ["Gangtok"],
+    "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai", "Tiruchirappalli"],
+    "Telangana": ["Hyderabad", "Warangal", "Nizamabad"],
+    "Tripura": ["Agartala"],
+    "Uttar Pradesh": ["Lucknow", "Kanpur", "Noida", "Varanasi"],
+    "Uttarakhand": ["Dehradun", "Haridwar", "Nainital"],
+    "West Bengal": ["Kolkata", "Howrah", "Siliguri", "Durgapur"],
+    "Delhi": ["New Delhi"],
+}
+
+VOCATIONAL_CATEGORIES = [
+    "ITI Trades",
+    "Polytechnic Diploma",
+    "Apprenticeships (NAPS/NATS)",
+    "Paramedical & Healthcare Support",
+    "Culinary & Hospitality",
+    "Beauty & Wellness",
+    "Agriculture & Allied Trades",
+    "IT & Digital Skill Certifications",
+]
+
+# MODIFICATION (Vocational Careers -> relevant-data loading): this UI's
+# VOCATIONAL_CATEGORIES (training-route based) predates and is kept
+# unchanged; vocational_data's categories (industry-based, from
+# Vocational_Careers.pdf) are a different taxonomy. This map is the only
+# place that translates one into the other, so exactly one (small) slice
+# of vocational_data is pulled per search - never the whole dataset.
+VOCATIONAL_CATEGORY_TO_DATA_KEYS = {
+    "ITI Trades": [
+        "construction_infrastructure", "manufacturing_mechanical",
+        "electrical_electronics", "automobile",
+    ],
+    "Polytechnic Diploma": [
+        "manufacturing_mechanical", "electrical_electronics",
+        "construction_infrastructure", "automobile",
+    ],
+    "Apprenticeships (NAPS/NATS)": [
+        "manufacturing_mechanical", "construction_infrastructure",
+        "automobile", "electrical_electronics",
+    ],
+    "Paramedical & Healthcare Support": ["healthcare"],
+    "Culinary & Hospitality": ["hospitality_tourism"],
+    "Beauty & Wellness": ["beauty_wellness"],
+    "Agriculture & Allied Trades": ["agriculture", "food_processing"],
+    "IT & Digital Skill Certifications": [
+        "information_technology", "media_creative",
+    ],
+}
+
+
+def get_relevant_vocational_context(state, city, category):
+    """
+    Build a small, ready-to-use context for the user's State/City/Category
+    selection - pulling ONLY the matching slice of vocational_data, never
+    the entire dataset.
+
+    Performance notes:
+    - vocational_data.filter_careers() is called with an explicit
+      `categories=` list resolved from VOCATIONAL_CATEGORY_TO_DATA_KEYS, so
+      only that category's careers are read out of the module (typically
+      ~6-12 of the 103 total entries), not the full career list.
+    - State/city are used only to add brief location framing (does the
+      selected city already appear as a known training/employment hub in
+      the source document); no per-state/city dataset exists or is loaded,
+      since the source document doesn't break careers down by state.
+    - Returns plain data (dict) - no Gemini/network call happens here. This
+      keeps the "load relevant info" step cheap and separate from the
+      (separate, cache-checked) AI-generation step that will consume it.
+    """
+    no_selection = (
+        not category
+        or category == "Select Vocational Category"
+        or category not in VOCATIONAL_CATEGORY_TO_DATA_KEYS
+    )
+    if no_selection:
+        return None
+
+    data_keys = VOCATIONAL_CATEGORY_TO_DATA_KEYS[category]
+
+    # Only the relevant category slice is pulled from vocational_data -
+    # filter_careers() narrows to `data_keys` internally rather than this
+    # function iterating the full flat list itself.
+    matches = vocational_data.filter_careers(categories=data_keys)
+    career_names = sorted({m["career"] for m in matches})
+
+    city_is_known_hub = bool(city) and city in vocational_data.TRAINING_EMPLOYMENT_CITIES
+
+    return {
+        "state": state or "",
+        "city": city or "",
+        "category": category,
+        "city_is_known_training_hub": city_is_known_hub,
+        "careers": career_names,
+        "eligibility_options": vocational_data.ELIGIBILITY_INFO["minimum_qualification_options"],
+        "age_range": vocational_data.ELIGIBILITY_INFO["age_range"],
+        "salary_bands": vocational_data.SALARY_BANDS,
+        "career_growth_path": vocational_data.CAREER_GROWTH_PATH,
+    }
+
+
+def _build_vocational_ai_context_text(context):
+    """
+    Render the (already-filtered) context dict from
+    get_relevant_vocational_context() into a compact plain-text block
+    suitable for dropping into a Gemini prompt. Kept separate from prompt
+    construction itself so future AI features (overview, roadmap, etc.)
+    can all reuse this same compact block instead of re-serializing the
+    full dataset each time.
+    """
+    if not context:
+        return ""
+
+    hub_line = (
+        f"{context['city']} is a known training/employment hub for this field."
+        if context["city_is_known_training_hub"]
+        else f"No specific data on {context['city']} - treat it as a general Indian city for this field."
+    )
+
+    lines = [
+        f"Category: {context['category']}",
+        f"Location: {context['city']}, {context['state']}",
+        hub_line,
+        f"Relevant careers: {', '.join(context['careers'])}",
+        f"Eligibility routes: {'; '.join(context['eligibility_options'])}",
+        f"Typical age range: {context['age_range']['min']}-{context['age_range']['max']} ({context['age_range']['note']})",
+        "Salary bands: " + "; ".join(
+            f"{b['experience']}: {b['salary_range']}" for b in context["salary_bands"]
+        ),
+        "Career growth path: " + " -> ".join(context["career_growth_path"]),
+    ]
+    return "\n".join(lines)
+
+
+def _build_vocational_career_ai_context_text(context):
+    """
+    Render the single-career context dict from
+    vocational_data.get_career_detail_context() into a compact plain-text
+    block for a Gemini prompt. Mirrors _build_vocational_ai_context_text
+    above, but scoped to exactly ONE career - this is the only text that
+    gets sent to Gemini for a career detail request, never the full
+    vocational_careers_data module.
+    """
+    if not context:
+        return ""
+
+    lines = [
+        f"Career: {context['career']}",
+        f"Category: {context['category_label']}",
+        "Eligibility routes: " + "; ".join(context["eligibility_options"]),
+        f"Typical age range: {context['age_range']['min']}-{context['age_range']['max']} ({context['age_note']})",
+        "Core technical skill areas: " + ", ".join(context["technical_skills"]),
+        "Core soft skill areas: " + ", ".join(context["soft_skills"]),
+        "Typical training institutes: " + ", ".join(context["training_institutes"]),
+        f"Typical course duration: {context['course_duration']['min']} - {context['course_duration']['max']} ({context['course_duration']['note']})",
+        "Recognised certifications: " + ", ".join(context["certifications"]),
+        "Salary bands: " + "; ".join(
+            f"{b['experience']}: {b['salary_range']}" for b in context["salary_bands"]
+        ),
+        "Typical career growth path: " + " -> ".join(context["career_growth_path"]),
+        "Common employment sectors: " + ", ".join(context["employment_sectors"]),
+        "Relevant government portals/schemes: " + ", ".join(context["government_portals"]),
+    ]
+    return "\n".join(lines)
+
+
+def generate_ai_vocational_career_prompt(career_name, context_text):
+    """
+    Build the prompt sent to Gemini for a single, specifically SELECTED
+    vocational career. Only `context_text` (built from
+    vocational_data.get_career_detail_context() for this one career) is
+    included - the full vocational_careers_data module/document is never
+    sent.
+    """
+    prompt = f"""You are an expert vocational-career counsellor AI for students in India.
+The student has selected ONE specific vocational career to learn more about.
+
+SELECTED VOCATIONAL CAREER DATA (use this as your factual grounding - do not
+invent data that contradicts it, but you may elaborate naturally on top of it):
+{context_text}
+
+Generate EXACTLY these 12 sections for the career "{career_name}":
+1. career_overview - a complete description explaining what someone in this vocational career actually does day-to-day and where they typically work.
+2. eligibility - a list of the eligibility requirements (minimum qualification, age range, any prerequisites) to enter this specific career.
+3. skills - a list of the specific technical and soft skills required for this career (tailored to this career, not a generic list).
+4. salary - a paragraph summarizing realistic salary expectations in India for this career, from fresher to experienced/self-employed, in INR.
+5. job_demand - a paragraph on the CURRENT job market demand for this specific career in India.
+6. industries - a list of the specific industries/sectors that hire for this career (e.g. Construction Companies, Manufacturing, MSMEs, Self-Employment), tailored to this career.
+7. government_opportunities - a list of government schemes, portals, PSU/government-department jobs, subsidies, or apprenticeship programs relevant to entering or growing in this specific career.
+8. certifications - a list of the certifications/courses relevant to this specific career.
+9. career_growth - a list of career growth stages/promotion path specific to this career (e.g. Trainee -> ... -> Business Owner).
+10. future_scope - a paragraph forecasting the FUTURE outlook for this career over the next 5-10 years (automation risk, emerging opportunities, industry trends).
+11. learning_roadmap - a list of ordered steps a student should take to start and progress in this career (training, certification, practical experience, specialization).
+12. ai_career_advice - a short, personalized paragraph of practical advice for a student considering this specific vocational career.
+
+Do NOT use any other vocational career's data. Every fact must be specific to "{career_name}".
+
+OUTPUT FORMAT - respond with ONLY valid JSON, no markdown fences, no preamble:
+
+{{
+  "career_overview": "string",
+  "eligibility": ["string", "..."],
+  "skills": ["string", "..."],
+  "salary": "string",
+  "job_demand": "string",
+  "industries": ["string", "..."],
+  "government_opportunities": ["string", "..."],
+  "certifications": ["string", "..."],
+  "career_growth": ["string", "..."],
+  "future_scope": "string",
+  "learning_roadmap": ["string", "..."],
+  "ai_career_advice": "string"
+}}
+
+Every string value must be a single line with no literal line breaks (use spaces instead). Output JSON only."""
+
+    # MODIFICATION (Vocational Careers i18n integration): prepend the same
+    # selected-language directive every other Gemini prompt in this app
+    # uses, so vocational career AI breakdowns are generated NATIVELY in
+    # the student's selected language (Tamil/Hindi/Marathi/English)
+    # instead of always coming back in English. Nothing else about the
+    # prompt changes, and the response is never translated afterwards -
+    # consistent with the rest of the app's "generate in-language, don't
+    # post-translate AI output" approach.
+    prompt = f"{_gemini_language_instruction()}\n\n{prompt}"
+
+    return prompt
+
+
+def _validate_vocational_career_schema(data):
+    """
+    Schema validator for the vocational career detail response, passed
+    into generate_validated_json so a response missing required sections
+    triggers the same bounded single automatic retry as a JSON parse
+    failure.
+    """
+    required_keys = [
+        "career_overview", "eligibility", "skills", "salary", "job_demand",
+        "industries", "government_opportunities",
+        "certifications", "career_growth", "future_scope",
+        "learning_roadmap", "ai_career_advice",
+    ]
+    if not isinstance(data, dict) or not all(k in data for k in required_keys):
+        raise ValueError("Vocational career detail response missing one or more required sections.")
+    return data
+
+
+def generate_ai_vocational_career_detail(career_name):
+    """
+    Call Gemini to produce the AI-generated detail for ONE selected
+    vocational career and store the parsed result in
+    st.session_state.vocational_career_detail.
+
+    Only the compact single-career context built via
+    vocational_data.get_career_detail_context() /
+    _build_vocational_career_ai_context_text() is sent to Gemini - never
+    the full vocational_careers_data module/document.
+
+    RELIABILITY: uses generate_validated_json, which retries the Gemini
+    call exactly ONCE if JSON parsing OR schema validation fails, and
+    never calls json.loads() on unchecked text. The technical failure
+    detail is stored separately in
+    st.session_state.vocational_career_detail_error for an expandable
+    debug section; the message returned to the UI is always a short,
+    friendly sentence.
+    """
+    context = vocational_data.get_career_detail_context(career_name)
+    if context is None:
+        st.session_state.vocational_career_detail = None
+        st.session_state.vocational_career_detail_error = (
+            f"'{career_name}' was not found in the vocational careers data."
+        )
+        return {"status": "error", "message": _t("This career could not be found. Please pick another one.")}
+
+    context_text = _build_vocational_career_ai_context_text(context)
+    prompt = generate_ai_vocational_career_prompt(career_name, context_text)
+
+    try:
+        model = get_gemini_client()
+    except GeminiConfigError as e:
+        st.session_state.vocational_career_detail = None
+        st.session_state.vocational_career_detail_error = str(e)
+        return {"status": "error", "message": _t("This career breakdown is temporarily unavailable. Please try again later.")}
+
+    try:
+        data, response_text = generate_validated_json(
+            model, prompt, max_output_tokens=2560,
+            label="generate_ai_vocational_career_detail",
+            validator=_validate_vocational_career_schema,
+        )
+
+        if data is None:
+            st.session_state.vocational_career_detail = None
+            st.session_state.vocational_career_detail_error = (
+                "Gemini's response was empty, invalid JSON, or missing "
+                "one or more required sections, even after one automatic retry."
+            )
+            return {
+                "status": "error",
+                "message": _t("This career breakdown could not be generated right now. Please try again later."),
+            }
+
+        st.session_state.vocational_career_detail = data
+        st.session_state.vocational_career_detail_error = None
+        return {"status": "success", "message": _t("Career detail generated.")}
+    except Exception as e:
+        st.session_state.vocational_career_detail = None
+        st.session_state.vocational_career_detail_error = str(e)
+        return {
+            "status": "error",
+            "message": _t("Something went wrong while generating this career breakdown. Please try again later."),
+        }
+
+
+def show_vocational_careers():
+    """
+    Vocational Careers section. Rendered inline in the existing content
+    area via the normal session_state.page dispatcher in main() - not a
+    separate Streamlit page/st.switch_page(). Reuses the same visual
+    language as the other sections (show_header(), 'main-card' /
+    'section-title' classes already defined in the app's <style> block,
+    and the same inline-styled info-card look used on the Help page) so
+    no new CSS is introduced and the rest of the UI is untouched. All
+    text goes through _t() so it follows st.session_state.language like
+    every other page - the language selector on the Welcome page keeps
+    working exactly as before.
+    """
+    show_header()
+
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="welcome-heading">{_t("Vocational Careers")}</h1>', unsafe_allow_html=True)
+    st.markdown(
+        f'<p class="welcome-subheading">{_t("Skill-based career paths that lead directly to employment - no long degree required")}</p>',
+        unsafe_allow_html=True,
+    )
+    st.markdown('<hr>', unsafe_allow_html=True)
+
+    # ---- Search filters: State / City / Vocational Category + Search ----
+    # MODIFICATION (Vocational Careers search UI): captures the user's
+    # selections into session_state only. Intentionally does NOT call any
+    # AI/data-fetching function yet - no career listings are loaded here,
+    # per requirements. The Search button just stores what was searched
+    # for and shows an acknowledgement placeholder.
+    st.markdown(f'<h3 class="section-title">{_t("Search Vocational Careers")}</h3>', unsafe_allow_html=True)
+
+    filter_col1, filter_col2, filter_col3 = st.columns(3)
+    with filter_col1:
+        state_options = ["Select State"] + list(VOCATIONAL_STATE_CITIES.keys())
+        vocational_state = st.selectbox(
+            _t("State"),
+            state_options,
+            key="vocational_state",
+            # MODIFICATION (Vocational Careers i18n integration): translate
+            # the dropdown options themselves (placeholder + state names),
+            # not just the field label - mirrors the Vocational Category
+            # dropdown below, which already used format_func=_t.
+            format_func=_t,
+        )
+    with filter_col2:
+        city_choices = VOCATIONAL_STATE_CITIES.get(vocational_state, [])
+        city_options = ["Select City"] + city_choices
+        vocational_city = st.selectbox(
+            _t("City"),
+            city_options,
+            key="vocational_city",
+            format_func=_t,
+        )
+    with filter_col3:
+        category_options = ["Select Vocational Category"] + VOCATIONAL_CATEGORIES
+        vocational_category = st.selectbox(
+            _t("Vocational Category"),
+            category_options,
+            key="vocational_category",
+            format_func=_t,
+        )
+
+    search_clicked = st.button(_t("Search"), key="vocational_search_btn", type="primary", use_container_width=True)
+    if search_clicked:
+        st.session_state.vocational_search_submitted = True
+
+    if st.session_state.get("vocational_search_submitted"):
+        # MODIFICATION (Vocational Careers -> relevant-data loading):
+        # fingerprint the current State/City/Category selection and only
+        # rebuild the filtered context when the selection actually changed.
+        # This avoids re-filtering vocational_data (and, once the AI step
+        # is wired in, avoids re-calling Gemini) on every Streamlit rerun
+        # triggered by unrelated widget interactions on this page.
+        selection_fingerprint = make_response_fingerprint(
+            vocational_state, vocational_city, vocational_category
+        )
+        if st.session_state.get("vocational_context_fingerprint") != selection_fingerprint:
+            st.session_state.vocational_prepared_context = get_relevant_vocational_context(
+                vocational_state, vocational_city, vocational_category
+            )
+            st.session_state.vocational_context_fingerprint = selection_fingerprint
+
+        prepared_context = st.session_state.vocational_prepared_context
+
+        if prepared_context is None:
+            st.warning(_t("Please select a Vocational Category to continue."))
+        else:
+            st.info(
+                _t("Found")
+                + f" {len(prepared_context['careers'])} "
+                + _t("relevant vocational careers for")
+                + f" {_t(vocational_category)}. "
+                + _t("Select one below to get its full AI-generated breakdown.")
+            )
+
+            # ---- Career selection: user picks ONE specific career. Only
+            # that single career's compact context (never the whole
+            # dataset) is what will be sent to Gemini. ----
+            careers_found = prepared_context["careers"]
+            for row_start in range(0, len(careers_found), 3):
+                row_careers = careers_found[row_start:row_start + 3]
+                row_cols = st.columns(3)
+                for j, career_name in enumerate(row_careers):
+                    c_idx = row_start + j
+                    with row_cols[j]:
+                        if st.button(_t(career_name), key=f"vocational_career_{c_idx}", use_container_width=True):
+                            st.session_state.selected_vocational_career = career_name
+                            st.session_state.vocational_career_detail = None
+                            st.session_state.vocational_career_detail_fingerprint = None
+                            st.rerun()
+
+    # ---- Selected career: AI-generated detail (Career Overview,
+    # Eligibility, Skills, Salary, Job Demand, Certifications, Career
+    # Growth, Future Scope, Industries, Government Opportunities, Learning
+    # Roadmap, AI Career Advice). Only the selected career's own data is
+    # ever sent to Gemini - see generate_ai_vocational_career_detail() /
+    # get_career_detail_context(). ----
+    selected_career = st.session_state.get("selected_vocational_career")
+    if selected_career:
+        st.markdown('<hr>', unsafe_allow_html=True)
+
+        # MODIFICATION (modern AI detail UI): hero card shows the selected
+        # career + its category as a pill badge, in the blue/cyan design
+        # used throughout the rest of this detail section. Category label
+        # comes from the same pure-data lookup already used to build the
+        # Gemini context (no extra AI call).
+        _career_ctx_for_hero = vocational_data.get_career_detail_context(selected_career)
+        _category_label_for_hero = _career_ctx_for_hero["category_label"] if _career_ctx_for_hero else ""
+        st.markdown(
+            f'<div class="vocdetail-hero">'
+            f'<div class="vocdetail-hero-icon">🧭</div>'
+            f'<div>'
+            f'<div class="vocdetail-hero-title">{_t(selected_career)}</div>'
+            + (f'<span class="vocdetail-hero-badge">{_t(_category_label_for_hero)}</span>' if _category_label_for_hero else "")
+            + '</div></div>',
+            unsafe_allow_html=True,
+        )
+
+        current_fp = make_response_fingerprint(selected_career)
+        if (
+            st.session_state.get("vocational_career_detail") is None
+            or st.session_state.get("vocational_career_detail_fingerprint") != current_fp
+        ):
+            with st.spinner(f"{_t('Generating AI breakdown for')} {_t(selected_career)}..."):
+                result = generate_ai_vocational_career_detail(selected_career)
+            st.session_state.vocational_career_detail_status = result
+            st.session_state.vocational_career_detail_fingerprint = current_fp
+
+        detail = st.session_state.get("vocational_career_detail")
+
+        if not detail:
+            msg = (st.session_state.get("vocational_career_detail_status") or {}).get(
+                "message", _t("This career breakdown could not be generated right now.")
+            )
+            st.markdown(f"""
+            <div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">
+                <p>⚠️ {msg}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.session_state.get("vocational_career_detail_error"):
+                with st.expander(_t("Technical details (for debugging)")):
+                    st.code(st.session_state.vocational_career_detail_error)
+            if st.button(t("buttons.retry"), key="vocational_career_retry_btn", use_container_width=True):
+                st.session_state.vocational_career_detail = None
+                st.rerun()
+        else:
+            # MODIFICATION (collapsible detail sections): each section is
+            # now its own st.expander, stacked in a single column. This is
+            # the "question-card" content pattern already used for the
+            # Career Overview expander elsewhere in the app (see
+            # show_career_overview()), so no new CSS is introduced. A
+            # single-column stack (no side-by-side st.columns) keeps this
+            # readable and responsive on narrow/mobile viewports. Every
+            # value below still comes straight from `detail` (the Gemini
+            # response for this one career) - no new data is invented here.
+            def vocdetail_text_section(title, icon, text, expanded=False):
+                with st.expander(f"{icon} {_t(title)}", expanded=expanded):
+                    st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
+                    st.markdown(text or "")
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+            def vocdetail_list_section(title, icon, items, expanded=False):
+                with st.expander(f"{icon} {_t(title)}", expanded=expanded):
+                    st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
+                    for item in (items or []):
+                        st.markdown(f"- {item}")
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+            # ---- The 8 requested sections, in order, each collapsible ----
+            vocdetail_text_section("Complete Description", "📘", detail.get("career_overview", ""), expanded=True)
+            vocdetail_list_section("Required Skills", "🛠️", detail.get("skills", []))
+            vocdetail_list_section("Eligibility", "🎓", detail.get("eligibility", []))
+            vocdetail_text_section("Salary", "💰", detail.get("salary", ""))
+            vocdetail_list_section("Industries", "🏭", detail.get("industries", []))
+            vocdetail_list_section("Government Opportunities", "🏛️", detail.get("government_opportunities", []))
+            vocdetail_list_section("Certifications", "📜", detail.get("certifications", []))
+            vocdetail_text_section("Future Scope", "🔮", detail.get("future_scope", ""))
+
+            # ---- Additional insights (kept from the previous version,
+            # collapsed by default so the 8 requested sections stay the
+            # primary focus) ----
+            vocdetail_text_section("Job Demand", "📊", detail.get("job_demand", ""))
+            vocdetail_list_section("Career Growth", "📈", detail.get("career_growth", []))
+            vocdetail_list_section("Learning Roadmap", "🗺️", detail.get("learning_roadmap", []))
+            vocdetail_text_section("AI Career Advice", "🤖", detail.get("ai_career_advice", ""))
+
+        if st.button(_t("Clear selection"), key="vocational_career_clear_btn", use_container_width=True):
+            st.session_state.selected_vocational_career = None
+            st.session_state.vocational_career_detail = None
+            st.session_state.vocational_career_detail_fingerprint = None
+            st.rerun()
+
+    st.markdown('<hr>', unsafe_allow_html=True)
+
+    st.markdown(f'<h3 class="section-title">{_t("Explore Vocational & Skill-Based Paths")}</h3>', unsafe_allow_html=True)
+
+    vocational_tracks = [
+        ("🔧", "ITI Trades", "Government/private Industrial Training Institute courses (electrician, fitter, welder, mechanic) leading to certified, job-ready skills in 1-2 years."),
+        ("🏭", "Polytechnic Diploma", "3-year diploma in engineering fields (mechanical, civil, electrical, computer) after 10th - a fast, affordable route into technical jobs or lateral entry to engineering degrees."),
+        ("🎓", "Apprenticeships (NAPS/NATS)", "Earn-while-you-learn training with companies under India's National Apprenticeship schemes, combining stipend, hands-on work, and a recognized certificate."),
+        ("🩺", "Paramedical & Healthcare Support", "Short-term diplomas for lab technician, nursing assistant, radiology technician, and other in-demand healthcare support roles."),
+        ("🍳", "Culinary & Hospitality", "Hotel management diplomas, chef training, and hospitality certifications for careers in restaurants, hotels, and catering."),
+        ("💇", "Beauty & Wellness", "Certified courses in cosmetology, hairstyling, and wellness therapy - popular self-employment and salon-industry pathways."),
+        ("🌾", "Agriculture & Allied Trades", "Diplomas and certifications in agriculture, horticulture, and dairy/animal husbandry for rural and agri-business careers."),
+        ("💻", "IT & Digital Skill Certifications", "NSDC-aligned short courses in web support, digital marketing, and computer hardware - quick entry into the IT services job market."),
+    ]
+
+    cards_html_parts = ['<div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:0.9rem;">']
+    for icon, title, description in vocational_tracks:
+        cards_html_parts.append(
+            '<div style="background:#F8F9FF; border-left:4px solid #667eea; border-radius:16px; '
+            'padding:1.1rem 1.3rem;">'
+            f'<p style="margin:0 0 0.35rem 0; font-weight:700; font-size:1.02rem;">{icon} {_t(title)}</p>'
+            f'<p style="margin:0; color:#444; font-size:0.92rem; line-height:1.5;">{_t(description)}</p>'
+            '</div>'
+        )
+    cards_html_parts.append('</div>')
+    st.markdown("".join(cards_html_parts), unsafe_allow_html=True)
+
+    st.markdown(
+        f'<p style="margin-top:1.2rem; color:#555;">{_t("Not sure if a vocational path fits you? Take the career assessment to get a personalized recommendation alongside these options.")}</p>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button(t("buttons.back"), key="vocational_careers_back_btn", use_container_width=True):
+        st.session_state.page = st.session_state.get("vocational_careers_return_page") or "welcome"
+        st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
 
 def show_help():
     """
@@ -6545,29 +7769,29 @@ def show_help():
     show_header()
 
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.markdown('<h1 class="welcome-heading">Help Center</h1>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="welcome-heading">{t("help.title")}</h1>', unsafe_allow_html=True)
     st.markdown(
         '<p class="welcome-subheading">Your personal AI-generated guide to using the AI Career Guidance Platform</p>',
         unsafe_allow_html=True,
     )
     st.markdown('<hr>', unsafe_allow_html=True)
 
-    st.markdown('<h3 class="section-title">Ask the AI Assistant</h3>', unsafe_allow_html=True)
+    st.markdown(f'<h3 class="section-title">{t("help.ask_ai_heading")}</h3>', unsafe_allow_html=True)
     search_col1, search_col2 = st.columns([4, 1])
     with search_col1:
         query = st.text_input(
-            "Ask a question about using the AI Career Guidance Platform",
+            t("labels.help_search"),
             value=st.session_state.help_search_query,
-            placeholder="e.g. How are recommendations generated?",
+            placeholder=t("labels.help_search_placeholder"),
             key="help_search_input",
             label_visibility="collapsed",
         )
     with search_col2:
-        ask_clicked = st.button("Ask AI", key="help_ask_btn", use_container_width=True)
+        ask_clicked = st.button(t("buttons.ask_ai"), key="help_ask_btn", use_container_width=True)
 
     if ask_clicked:
         st.session_state.help_search_query = query
-        with st.spinner("Gemini is thinking..."):
+        with st.spinner(t("help.thinking_spinner")):
             result = generate_help_search_answer(query)
         if result["status"] == "success":
             st.session_state.help_search_answer = result["answer"]
@@ -6590,22 +7814,22 @@ def show_help():
     st.markdown('<hr>', unsafe_allow_html=True)
 
     if not st.session_state.ai_help_guide:
-        with st.spinner("Gemini is generating your personalized help guide..."):
+        with st.spinner(t("help.generating_spinner")):
             generate_ai_help_guide()
 
     regen_col1, regen_col2 = st.columns([5, 1])
     with regen_col2:
-        if st.button("Regenerate", key="help_regenerate_btn", use_container_width=True):
-            with st.spinner("Regenerating your AI help guide..."):
+        if st.button(t("buttons.regenerate"), key="help_regenerate_btn", use_container_width=True):
+            with st.spinner(t("help.regenerating_spinner")):
                 generate_ai_help_guide(force_refresh=True)
             st.rerun()
 
     guide = st.session_state.ai_help_guide
 
     if not guide:
-        st.error(st.session_state.ai_help_guide_status or "The AI Help Guide is temporarily unavailable.")
+        st.error(st.session_state.ai_help_guide_status or t("messages.error.help_guide_unavailable"))
     else:
-        st.markdown('<h3 class="section-title">About This App</h3>', unsafe_allow_html=True)
+        st.markdown(f'<h3 class="section-title">{t("help.about_app_heading")}</h3>', unsafe_allow_html=True)
         st.markdown(
             "<div style=\"background:#FFF8F0; border-radius:20px; padding:1.5rem; margin-bottom:1rem;\">"
             "<p><strong>What AI-Career Counselling System does:</strong> " + guide['app_overview'] + "</p>"
@@ -6615,7 +7839,7 @@ def show_help():
             unsafe_allow_html=True,
         )
 
-        st.markdown('<h3 class="section-title">Step-by-Step Guide</h3>', unsafe_allow_html=True)
+        st.markdown(f'<h3 class="section-title">{t("help.steps_heading")}</h3>', unsafe_allow_html=True)
         steps_html_parts = ['<div style="background:#F8F9FF; border-radius:20px; padding:1.5rem;">']
         total_steps = len(guide["steps"])
         for i, step in enumerate(guide["steps"]):
@@ -6634,20 +7858,20 @@ def show_help():
         steps_html_parts.append('</div>')
         st.markdown("".join(steps_html_parts), unsafe_allow_html=True)
 
-        st.markdown('<h3 class="section-title">AI Tips for Best Results</h3>', unsafe_allow_html=True)
+        st.markdown(f'<h3 class="section-title">{t("help.tips_heading")}</h3>', unsafe_allow_html=True)
         tips_html_parts = ['<div style="background:#F0FFF4; border-radius:20px; padding:1.5rem;"><ul style="margin:0; padding-left:1.2rem;">']
         for tip in guide["tips"]:
             tips_html_parts.append('<li style="margin-bottom:0.4rem;">' + tip + '</li>')
         tips_html_parts.append('</ul></div>')
         st.markdown("".join(tips_html_parts), unsafe_allow_html=True)
 
-        st.markdown('<h3 class="section-title">Frequently Asked Questions</h3>', unsafe_allow_html=True)
+        st.markdown(f'<h3 class="section-title">{t("help.faq_heading")}</h3>', unsafe_allow_html=True)
         for faq in guide["faqs"]:
             with st.expander(faq["question"]):
                 st.write(faq["answer"])
 
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("Back", key="help_back_btn", use_container_width=True):
+    if st.button(t("buttons.back"), key="help_back_btn", use_container_width=True):
         st.session_state.page = st.session_state.help_return_page or "welcome"
         st.rerun()
 
@@ -6769,69 +7993,71 @@ def show_welcome():
                 border-left: 5px solid #E67E22;
             }
         </style>
+        """, unsafe_allow_html=True)
 
+        st.markdown(f"""
         <div class="about-hero">
-            <h1>🌍 About CoActions</h1>
-            <p>Empowering young people, institutions, and communities through technology, innovation, and meaningful learning experiences.</p>
+            <h1>🌍 {t("about.title")}</h1>
+            <p>{t("about.hero_subtitle")}</p>
         </div>
 
         <div class="about-section">
-            <h2>🌍 About CoActions</h2>
-            <p><strong>CoActions</strong> is a social impact organization committed to empowering young people, educational institutions, NGOs, and communities through technology, innovation, and meaningful learning experiences. By combining digital solutions with real-world projects, CoActions helps individuals develop future-ready skills while supporting organizations in creating sustainable social impact.</p>
-            <p>With experience collaborating across education, community development, and international initiatives, CoActions focuses on building opportunities that encourage <strong>leadership, innovation, and inclusive growth</strong>. Every program is designed to bridge the gap between classroom learning and practical experience, preparing individuals to succeed in an evolving global landscape.</p>
+            <h2>🌍 {t("about.title")}</h2>
+            <p>{t("about.intro_paragraph_1")}</p>
+            <p>{t("about.intro_paragraph_2")}</p>
         </div>
 
         <div class="about-section">
-            <span class="about-badge">FLAGSHIP PROGRAM</span>
-            <h2>🚀 About the Elevate Initiative</h2>
-            <p>The <strong>Elevate Initiative</strong> is CoActions' flagship youth engagement and skill development program designed for students aged <strong>10 to 20 years</strong>. The program connects students with real-world projects, internships, and guided learning experiences that help them build practical knowledge beyond traditional academics.</p>
-            <p>Through hands-on participation in social, environmental, technology, education, and innovation-focused projects, students gain valuable experience while developing essential professional and life skills. Elevate encourages participants to become <strong>confident leaders, responsible citizens, and creative problem-solvers</strong> capable of making a positive impact in their communities.</p>
+            <span class="about-badge">{t("about.badge_flagship")}</span>
+            <h2>🚀 {t("about.elevate_title")}</h2>
+            <p>{t("about.elevate_paragraph_1")}</p>
+            <p>{t("about.elevate_paragraph_2")}</p>
         </div>
 
         <div class="about-mission">
-            <h2>🎯 Our Mission</h2>
-            <p>Our mission is to empower students with practical learning opportunities that combine technology, innovation, and social responsibility. We aim to help every learner discover their strengths, build future-ready skills, and prepare confidently for higher education and successful careers.</p>
+            <h2>🎯 {t("about.mission_title")}</h2>
+            <p>{t("about.mission_text")}</p>
         </div>
 
         <div class="about-section">
-            <h2>💡 What We Do</h2>
+            <h2>💡 {t("about.what_we_do_title")}</h2>
             <ul class="about-list">
-                <li>🎓 AI-powered Career Guidance and Skill Assessment</li>
-                <li>💻 Technology and Digital Transformation Solutions</li>
-                <li>🌱 Youth Leadership and Skill Development Programs</li>
-                <li>🤝 Internship and Real-World Project Opportunities</li>
-                <li>📊 Information Management and Data Solutions</li>
-                <li>🏫 Educational and Social Impact Initiatives</li>
-                <li>🌍 Community Development and NGO Support</li>
+                <li>🎓 {t("about.item_ai_career")}</li>
+                <li>💻 {t("about.item_tech")}</li>
+                <li>🌱 {t("about.item_youth")}</li>
+                <li>🤝 {t("about.item_internship")}</li>
+                <li>📊 {t("about.item_data")}</li>
+                <li>🏫 {t("about.item_education")}</li>
+                <li>🌍 {t("about.item_community")}</li>
             </ul>
         </div>
 
         <div class="about-section">
-            <h2>🌟 Why Choose CoActions?</h2>
+            <h2>🌟 {t("about.why_title")}</h2>
             <ul class="about-list why">
-                <li>Real-world project experience beyond classroom learning</li>
-                <li>AI-driven career guidance and personalized recommendations</li>
-                <li>Opportunities to work on meaningful social impact initiatives</li>
-                <li>Development of leadership, teamwork, and communication skills</li>
-                <li>Exposure to industry-relevant technologies and innovation</li>
-                <li>Supportive learning environment focused on continuous growth</li>
-                <li>Programs designed to strengthen academic, career, and university profiles</li>
+                <li>{t("about.why_item_1")}</li>
+                <li>{t("about.why_item_2")}</li>
+                <li>{t("about.why_item_3")}</li>
+                <li>{t("about.why_item_4")}</li>
+                <li>{t("about.why_item_5")}</li>
+                <li>{t("about.why_item_6")}</li>
+                <li>{t("about.why_item_7")}</li>
             </ul>
         </div>
 
         <div class="about-section">
-            <h2>📈 Our Impact</h2>
-            <p>Through the Elevate Initiative, students work on projects that address real societal challenges while strengthening their technical and professional skills. Participants have successfully secured <strong>internships, scholarships, leadership opportunities, and recognition</strong> through the practical experience gained during the program. Every project encourages creativity, collaboration, critical thinking, and a commitment to creating positive change.</p>
+            <h2>📈 {t("about.impact_title")}</h2>
+            <p>{t("about.impact_text")}</p>
         </div>
 
         <div class="about-commit">
-            <h2 style="margin-top:0; color:#D35400; font-size:1.3rem; font-weight:800;">🤝 Our Commitment</h2>
-            <p style="margin:0; color:#333; line-height:1.65;">At CoActions, we believe education should extend beyond textbooks. We are committed to creating meaningful learning experiences that inspire students to innovate, collaborate, and lead with purpose. By combining technology, mentorship, and real-world engagement, we help young learners build confidence, develop future-ready skills, and contribute to a more inclusive and sustainable world.</p>
+            <h2 style="margin-top:0; color:#D35400; font-size:1.3rem; font-weight:800;">🤝 {t("about.commitment_title")}</h2>
+            <p style="margin:0; color:#333; line-height:1.65;">{t("about.commitment_text")}</p>
         </div>
         """, unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("← Back to Home", key="back_to_home_about", use_container_width=True):
+        if st.button(t("buttons.back_to_home"), key="back_to_home_about", use_container_width=True):
             st.session_state.show_about = False
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
@@ -6839,50 +8065,81 @@ def show_welcome():
     
     if st.session_state.show_contact:
         st.markdown('<div class="main-card">', unsafe_allow_html=True)
-        st.markdown('<h1 class="welcome-heading">📞 Contact Us</h1>', unsafe_allow_html=True)
-        st.markdown("""
+        st.markdown(f'<h1 class="welcome-heading">📞 {t("footer.title")}</h1>', unsafe_allow_html=True)
+        st.markdown(f"""
         <div style="background:#FFF8F0; border-radius:20px; padding:1.5rem;">
-            <p>📧 <strong>Email:</strong> <a href="mailto:elevateall2020@gmail.com">elevateall2020@gmail.com</a></p>
-            <p>🌐 <strong>Website:</strong> <a href="https://coactionsinfotech.org/" target="_blank">https://coactionsinfotech.org/</a></p>
-            <p>💬 <strong>Support:</strong> Mon-Fri, 9AM-6PM</p>
+            <p>📧 <strong>{t("footer.email_label")}</strong> <a href="mailto:elevateall2020@gmail.com">elevateall2020@gmail.com</a></p>
+            <p>🌐 <strong>{t("footer.website_label")}</strong> <a href="https://coactionsinfotech.org/" target="_blank">https://coactionsinfotech.org/</a></p>
+            <p>💬 <strong>{t("footer.support_label")}</strong> {t("footer.support_hours")}</p>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("← Back to Home", key="back_to_home_contact"):
+        if st.button(t("buttons.back_to_home"), key="back_to_home_contact"):
             st.session_state.show_contact = False
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
         return
     
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.markdown('<h1 class="welcome-heading">Welcome to the Career Counselling Tool</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="welcome-subheading">Discover Your Perfect Career Path with Personalized Guidance</p>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="welcome-heading">{t("home.welcome_heading")}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p class="welcome-subheading">{t("home.welcome_subheading")}</p>', unsafe_allow_html=True)
     show_home_banner()
     st.markdown('<hr>', unsafe_allow_html=True)
     
-    st.markdown('<h3 class="section-title">📝 Student Information</h3>', unsafe_allow_html=True)
+    with st.container(key="student_info_header_row"):
+        header_col, lang_col = st.columns([4, 1])
+        with header_col:
+            st.markdown(f'<h3 class="section-title">📝 {t("home.student_information")}</h3>', unsafe_allow_html=True)
+        with lang_col:
+            language_options = ["English (Default)", "Tamil", "Hindi", "Marathi"]
+            current_language = st.session_state.get("language", "English (Default)")
+            if current_language not in language_options:
+                current_language = "English (Default)"
+            st.session_state.language = st.selectbox(
+                t("labels.language"),
+                language_options,
+                index=language_options.index(current_language),
+                key="language_selector",
+                label_visibility="collapsed"
+            )
 
     col1, col2 = st.columns(2)
     with col1:
-        student_name = st.text_input("Full Name *", placeholder="Enter your full name", key="welcome_name")
-        student_age = st.number_input("Age", min_value=10, max_value=100, step=1, key="welcome_age")
-        student_city = st.text_input("City *", placeholder="Enter your city", key="welcome_city")
+        student_name = st.text_input(t("labels.full_name"), placeholder=t("labels.full_name_placeholder"), key="welcome_name")
+        student_age = st.number_input(t("labels.age"), min_value=10, max_value=100, step=1, key="welcome_age")
+
+        # MODIFICATION (dynamic State -> City location selection): State is
+        # built by looping over INDIA_STATE_CITIES (all 28 States + 8 Union
+        # Territories) - nothing state-specific is hardcoded into the
+        # widget itself, so adding/removing a state only ever means editing
+        # that dict. Sorted alphabetically for easy scanning in the dropdown.
+        state_options = ["Select State"] + sorted(INDIA_STATE_CITIES.keys())
+        student_state = st.selectbox(
+            t("labels.state"),
+            state_options,
+            key="welcome_state"
+        )
     with col2:
-        student_institution = st.text_input("School/College/Institute", placeholder="Enter your institution", key="welcome_institution")
-        student_grade = st.selectbox("Current Grade/Year *", 
+        student_institution = st.text_input(t("labels.institution"), placeholder=t("labels.institution_placeholder"), key="welcome_institution")
+        student_grade = st.selectbox(t("labels.grade"), 
                                       ["Select Grade", "9th", "10th", "11th", "12th", "1st Year College", "2nd Year College", "3rd Year College", "4th Year College"],
                                       key="welcome_grade")
-        states_list = [
-                  "Select State",
-                  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand",
-                  "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
-                  "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura","Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"
-            ]
 
-        student_state = st.selectbox(
-               "State *",
-               states_list,
-               key="welcome_state"
-           )
+        # MODIFICATION (dynamic State -> City location selection): City
+        # options cascade off whichever state was just picked above - the
+        # top-3-cities list is looked up from INDIA_STATE_CITIES, never
+        # hardcoded per state here. The widget's key is derived from the
+        # selected state so Streamlit always mounts a fresh selectbox (reset
+        # to "Select City") the moment the state changes, instead of
+        # carrying over a city selection that no longer belongs to the
+        # newly selected state.
+        city_choices = INDIA_STATE_CITIES.get(student_state, [])
+        city_options = ["Select City"] + city_choices
+        student_city = st.selectbox(
+            t("labels.city"),
+            city_options,
+            key=f"welcome_city_{student_state}",
+            disabled=(student_state == "Select State"),
+        )
     
     st.markdown('<hr>', unsafe_allow_html=True)
     
@@ -6890,8 +8147,9 @@ def show_welcome():
     school_grades_list = ["9th", "10th", "11th", "12th"]
     college_grades_list = ["1st Year College", "2nd Year College", "3rd Year College", "4th Year College"]
     
-    if st.button("🚀 Start Your Career Journey", type="primary", use_container_width=True, key="start_journey"):
-        if student_name and student_grade != "Select Grade" and student_city and student_state:
+    if st.button(t("home.start_journey"), type="primary", use_container_width=True, key="start_journey"):
+        if (student_name and student_grade != "Select Grade"
+                and student_state != "Select State" and student_city != "Select City"):
             st.session_state.student_name = student_name
             st.session_state.student_age = student_age
             st.session_state.student_city = student_city
@@ -6909,26 +8167,28 @@ def show_welcome():
             st.session_state.page = 'load_assessment'
             st.rerun()
         elif not student_name:
-            st.warning("Please enter your name")
-        elif not student_city:
-            st.warning("Please enter your city")
+            st.warning(t("messages.warning.enter_name"))
         elif student_state == "Select State":
-            st.warning("Please select your state")
+            st.warning(t("messages.warning.select_state"))
+        elif student_city == "Select City":
+            st.warning(t("messages.warning.enter_city"))
         elif student_grade == "Select Grade":
-            st.warning("Please select your grade/year")
+            st.warning(t("messages.warning.select_grade"))
     
     st.markdown('</div>', unsafe_allow_html=True)
 
 # Load Assessment Page
 def show_load_assessment():
-    with st.spinner("Loading your personalized assessment..."):
-        # Load appropriate JSON file based on user type
+    with st.spinner(_t("Loading your personalized assessment...")):
+        # Load appropriate JSON file based on user type, in the currently
+        # selected UI language (falls back to English automatically if a
+        # translated file is missing).
         if st.session_state.user_type == 'school':
-            json_file = 'school_questions.json'
+            assessment_label = 'school_questions.json'
+            data = load_school_questions()
         else:
-            json_file = 'college_questions.json'
-        
-        data = load_json_file(json_file)
+            assessment_label = 'college_questions.json'
+            data = load_college_questions()
         
         if data:
             questions, categories = extract_questions_from_json(data)
@@ -6941,8 +8201,8 @@ def show_load_assessment():
             st.session_state.page = 'assessment'
             st.rerun()
         else:
-            st.error(f"{json_file} not found. Please make sure the file exists.")
-            if st.button("Go Back"):
+            st.error(f"{assessment_label} {t('messages.error.file_not_found_full')}")
+            if st.button(t("buttons.go_back")):
                 st.session_state.page = 'welcome'
                 st.rerun()
 
@@ -6952,12 +8212,12 @@ def show_assessment():
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     
     # Show user type indicator
-    user_type_display = "School Student" if st.session_state.user_type == 'school' else "College Student"
-    st.markdown(f'<div class="user-type-indicator">🎓 {user_type_display} Pathway</div>', unsafe_allow_html=True)
+    user_type_display = _t("School Student") if st.session_state.user_type == 'school' else _t("College Student")
+    st.markdown(f'<div class="user-type-indicator">🎓 {user_type_display} {_t("Pathway")}</div>', unsafe_allow_html=True)
     
     if not st.session_state.questions_list:
-        st.error("No questions loaded. Please go back and try again.")
-        if st.button("Go Back"):
+        st.error(t("messages.error.no_questions_loaded"))
+        if st.button(t("buttons.go_back")):
             st.session_state.page = 'welcome'
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
@@ -6971,27 +8231,34 @@ def show_assessment():
     end_idx = min(start_idx + questions_per_page, total_questions)
     page_questions = st.session_state.questions_list[start_idx:end_idx]
     
-    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.8rem;">Career Assessment</h1>', unsafe_allow_html=True)
-    st.markdown(f'<p class="sub-message" style="font-size:1.1rem;">Rate each statement honestly to get accurate career recommendations</p>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.8rem;">{_t("Career Assessment")}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p class="sub-message" style="font-size:1.1rem;">{_t("Rate each statement honestly to get accurate career recommendations")}</p>', unsafe_allow_html=True)
     
     # Page counter
-    st.markdown(f'<div class="page-counter">📄 Page {current_page + 1} of {total_pages}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="page-counter">📄 {_t("Page")} {current_page + 1} {_t("of")} {total_pages}</div>', unsafe_allow_html=True)
     
     # Display questions for current page
+    # NOTE: q['text'] and q['category_name'] come straight from the
+    # language-specific JSON loaded by load_school_questions() /
+    # load_college_questions() (e.g. school_questions.ta.json), so they
+    # are already in the selected language. They are shown as-is here
+    # (not passed through _t()) to avoid re-translating already-localized
+    # text. _t() is reserved for the static, English-authored UI strings
+    # on this page (headings, labels, buttons).
     for i, q in enumerate(page_questions):
         question_number = start_idx + i + 1
         st.markdown(f"""
         <div style="background: #FEF9F0; border-radius: 20px; padding: 1.2rem; margin: 1rem 0; border-left: 5px solid #E67E22; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
             <div style="font-weight: 700; color: #2E7D32; margin-bottom: 1rem; font-size: 1.2rem;">{question_number}. {q['text']}</div>
-            <p style="color: #1565C0; font-size: 0.85rem; margin-bottom: 0.5rem;">Category: {q['category_name']}</p>
+            <p style="color: #1565C0; font-size: 0.85rem; margin-bottom: 0.5rem;">{t("labels.category")} {q['category_name']}</p>
         </div>
         """, unsafe_allow_html=True)
         
         # Radio button with NO default selection (index=None)
         rating = st.radio(
-            "Select your answer:",
+            t("labels.select_answer"),
             options=[1, 2, 3, 4, 5],
-            format_func=lambda x: {1: "1 - Strongly Disagree", 2: "2 - Disagree", 3: "3 - Neutral", 4: "4 - Agree", 5: "5 - Strongly Agree"}[x],
+            format_func=lambda x: {1: f"1 - {t('labels.strongly_disagree')}", 2: f"2 - {t('labels.disagree')}", 3: f"3 - {t('labels.neutral')}", 4: f"4 - {t('labels.agree')}", 5: f"5 - {t('labels.strongly_agree')}"}[x],
             horizontal=True,
             key=f"q_{q['id']}_{question_number}",
             index=0  # This prevents any default selection
@@ -7008,13 +8275,13 @@ def show_assessment():
                          if st.session_state.responses.get(q['id']) is not None)
     progress = answered_count / total_questions if total_questions > 0 else 0
     st.progress(progress)
-    st.markdown(f'<p class="progress-text" style="font-size:0.9rem;">📊 Progress: {answered_count}/{total_questions} questions answered ({int(progress*100)}%)</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="progress-text" style="font-size:0.9rem;">📊 {_t("Progress:")} {answered_count}/{total_questions} {_t("questions answered")} ({int(progress*100)}%)</p>', unsafe_allow_html=True)
     
     # Navigation buttons
     col1, col2, col3 = st.columns([1, 2, 1])
     with col1:
         if current_page > 0:
-            if st.button("← Previous Page", key="career_prev_page"):
+            if st.button(t("buttons.previous_page"), key="career_prev_page"):
                 st.session_state.current_page -= 1
                 st.rerun()
     
@@ -7027,13 +8294,13 @@ def show_assessment():
         
         if end_idx < total_questions:
             if current_page_answered:
-                if st.button("Next Page →", key="career_next_page", type="primary"):
+                if st.button(t("buttons.next_page"), key="career_next_page", type="primary"):
                     st.session_state.current_page += 1
                     st.rerun()
             else:
                 # Show disabled button with warning
-                st.button("Next Page →", key="career_next_page_disabled", disabled=True)
-                st.warning(f"⚠️ Please answer all {len(page_questions)} questions on this page")
+                st.button(t("buttons.next_page"), key="career_next_page_disabled", disabled=True)
+                st.warning(f"⚠️ {t('messages.warning.answer_all_prefix')} {len(page_questions)} {t('messages.warning.questions_on_page')}")
         else:
             # Last page - check if all questions are answered
             all_answered = all(
@@ -7041,7 +8308,7 @@ def show_assessment():
                 for q in st.session_state.questions_list
             )
             if all_answered:
-                if st.button("Submit & Get Results", type="primary", key="submit_career_results"):
+                if st.button(t("buttons.submit_get_results"), type="primary", key="submit_career_results"):
                     # Calculate career assessment results
                     st.session_state.categories_data, st.session_state.recommended_categories = calculate_results(
                         st.session_state.responses, st.session_state.questions_list, st.session_state.categories_data
@@ -7051,8 +8318,8 @@ def show_assessment():
                     st.rerun()
             else:
                 unanswered = total_questions - answered_count
-                st.button("Submit & Get Results", key="submit_career_results_disabled", disabled=True)
-                st.warning(f"⚠️ Please answer {unanswered} more question(s) before submitting")
+                st.button(t("buttons.submit_get_results"), key="submit_career_results_disabled", disabled=True)
+                st.warning(f"⚠️ {t('messages.warning.answer_more_prefix')} {unanswered} {t('messages.warning.more_questions_before_submit')}")
     
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -7062,62 +8329,62 @@ def show_riasec_choice():
     
     st.markdown(f'''
     <div class="student-info-card">
-        👋 Welcome, <strong>{st.session_state.student_name}</strong><br>
-        📍 {st.session_state.student_city} | 🎂 Age: {st.session_state.student_age} | 📚 {st.session_state.student_grade}
+        👋 {_t("Welcome,")} <strong>{st.session_state.student_name}</strong><br>
+        📍 {st.session_state.student_city} | 🎂 {_t("Age:")} {st.session_state.student_age} | 📚 {st.session_state.student_grade}
     </div>
     ''', unsafe_allow_html=True)
     
-    st.markdown('<h1 class="welcome-heading" style="font-size:1.8rem;">🧭 Optional: RIASEC Career Assessment</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="welcome-subheading">⚠️ <strong>Note: Your career assessment is already complete. This is optional.</strong></p>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.8rem;">🧭 {_t("Optional: RIASEC Career Assessment")}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p class="welcome-subheading">⚠️ <strong>{_t("Note: Your career assessment is already complete. This is optional.")}</strong></p>', unsafe_allow_html=True)
     
     # Add Back button to go to career assessment
     col_back1, col_back2, col_back3 = st.columns([1, 2, 1])
     with col_back1:
-        if st.button("←Back   ", key="back_to_career_assessment", use_container_width=True):
+        if st.button(t("buttons.back_short"), key="back_to_career_assessment", use_container_width=True):
             st.session_state.page = 'assessment'
             st.rerun()
     
     st.markdown("<br>", unsafe_allow_html=True)
     
     # ============ DETAILS SHOWN DIRECTLY (NO EXPANDER) ============
-    st.markdown("""
+    st.markdown(f"""
     <div style="background: #E8F5E9; border-radius: 16px; padding: 1rem; margin: 1rem 0; border-left: 5px solid #1565C0;">
-        <strong style="color: #1565C0; font-size: 1.1rem;">🔍 What does the RIASEC assessment include?</strong><br><br>
-        The AI-powered RIASEC (Holland Code) assessment identifies your career personality type by evaluating your interest across six dimensions:
+        <strong style="color: #1565C0; font-size: 1.1rem;">🔍 {_t("What does the RIASEC assessment include?")}</strong><br><br>
+        {_t("The AI-powered RIASEC (Holland Code) assessment identifies your career personality type by evaluating your interest across six dimensions:")}
         <ul>
-            <li><strong>Realistic</strong>: Hands-on, mechanical, and practical activities</li>
-            <li><strong>Investigative</strong>: Analytical, scientific, and research-driven thinking</li>
-            <li><strong>Artistic</strong>: Creative, expressive, and original work</li>
-            <li><strong>Social</strong>: Helping, teaching, and working with people</li>
-            <li><strong>Enterprising</strong>: Leading, persuading, and business-minded thinking</li>
-            <li><strong>Conventional</strong>: Organised, detail-oriented, and structured work</li>
+            <li><strong>{_t("Realistic")}</strong>: {_t("Hands-on, mechanical, and practical activities")}</li>
+            <li><strong>{_t("Investigative")}</strong>: {_t("Analytical, scientific, and research-driven thinking")}</li>
+            <li><strong>{_t("Artistic")}</strong>: {_t("Creative, expressive, and original work")}</li>
+            <li><strong>{_t("Social")}</strong>: {_t("Helping, teaching, and working with people")}</li>
+            <li><strong>{_t("Enterprising")}</strong>: {_t("Leading, persuading, and business-minded thinking")}</li>
+            <li><strong>{_t("Conventional")}</strong>: {_t("Organised, detail-oriented, and structured work")}</li>
         </ul>
-        Based on your responses, our AI will generate your career personality type, top-matching careers, strengths, learning style, and suitable work environment - personalized just for you!
+        {_t("Based on your responses, our AI will generate your career personality type, top-matching careers, strengths, learning style, and suitable work environment - personalized just for you!")}
     </div>
     """, unsafe_allow_html=True)
     
     st.markdown("<br>", unsafe_allow_html=True)
     
     # Display assessment options
-    st.markdown('<p style="text-align: center; font-size: 1.1rem; font-weight: 500;">Choose an option below:</p>', unsafe_allow_html=True)
+    st.markdown(f'<p style="text-align: center; font-size: 1.1rem; font-weight: 500;">{_t("Choose an option below:")}</p>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown('''
+        st.markdown(f'''
         <div class="user-card personality-choice-card">
             <div>
                 <div class="user-icon">🧭</div>
-                <h3>Take RIASEC Assessment</h3>
-                <p>Take our AI-powered RIASEC (Holland Code) assessment to discover your career personality type and best-matching careers.</p>
-                <p style="margin-top:10px; font-size:0.8rem; color:#1E88E5;">⏱️ Takes about 10-15 minutes</p>
-                <p style="font-size:0.8rem; color:#1E88E5;">📊 30 questions</p>
-                <p style="margin-top:10px; font-size:0.8rem; color:#1565C0;">🤖 Fully AI-generated results</p>
+                <h3>{_t("Take RIASEC Assessment")}</h3>
+                <p>{_t("Take our AI-powered RIASEC (Holland Code) assessment to discover your career personality type and best-matching careers.")}</p>
+                <p style="margin-top:10px; font-size:0.8rem; color:#1E88E5;">⏱️ {_t("Takes about 10-15 minutes")}</p>
+                <p style="font-size:0.8rem; color:#1E88E5;">📊 {_t("30 questions")}</p>
+                <p style="margin-top:10px; font-size:0.8rem; color:#1565C0;">🤖 {_t("Fully AI-generated results")}</p>
             </div>
         </div>
         ''', unsafe_allow_html=True)
 
-        if st.button("🚀 Take RIASEC Assessment", key="take_riasec_btn", use_container_width=True):
+        if st.button(t("buttons.take_riasec_rocket"), key="take_riasec_btn", use_container_width=True):
             st.session_state.riasec_questions = get_riasec_questions(st.session_state.user_type)
             st.session_state.riasec_responses = {}
             st.session_state.riasec_current_page = 0
@@ -7129,20 +8396,20 @@ def show_riasec_choice():
             st.rerun()
 
     with col2:
-        st.markdown('''
+        st.markdown(f'''
         <div class="user-card personality-choice-card">
             <div>
                 <div class="user-icon">⏭️</div>
-                <h3>Skip RIASEC Assessment</h3>
-                <p>Skip the RIASEC test and go directly to your career stream comparison.</p>
-                <p style="margin-top:10px; font-size:0.8rem; color:#1E88E5;">⚡ Continue directly</p>
-                <p style="font-size:0.8rem; color:#1E88E5;">📊 View your career recommendations</p>
-                <p style="margin-top:10px; font-size:0.8rem; color:#1565C0;">🎯 Your career assessment results are ready!</p>
+                <h3>{_t("Skip RIASEC Assessment")}</h3>
+                <p>{_t("Skip the RIASEC test and go directly to your career stream comparison.")}</p>
+                <p style="margin-top:10px; font-size:0.8rem; color:#1E88E5;">⚡ {_t("Continue directly")}</p>
+                <p style="font-size:0.8rem; color:#1E88E5;">📊 {_t("View your career recommendations")}</p>
+                <p style="margin-top:10px; font-size:0.8rem; color:#1565C0;">🎯 {_t("Your career assessment results are ready!")}</p>
             </div>
         </div>
         ''', unsafe_allow_html=True)
         
-        if st.button("⏭️ Skip RIASEC Assessment", key="skip_riasec_btn", use_container_width=True):
+        if st.button(t("buttons.skip_riasec"), key="skip_riasec_btn", use_container_width=True):
             st.session_state.page = 'recommendation'
             st.rerun()
     
@@ -7158,7 +8425,7 @@ def show_riasec_assessment():
     """
     col_home, col_spacer = st.columns([1, 11])
     with col_home:
-        if st.button("🏠 Home", key="riasec_home", use_container_width=True):
+        if st.button(t("nav.home"), key="riasec_home", use_container_width=True):
             for key in list(st.session_state.keys()):
                 if key not in ['page']:
                     del st.session_state[key]
@@ -7178,11 +8445,18 @@ def show_riasec_assessment():
     end_idx = min(start_idx + questions_per_page, total_questions)
     page_questions = st.session_state.riasec_questions[start_idx:end_idx]
 
-    st.markdown('<h1 class="welcome-heading" style="font-size:1.5rem;">🧭 RIASEC Career Assessment</h1>', unsafe_allow_html=True)
-    st.markdown(f'<p class="sub-message">Page {current_page + 1} of {total_pages} • How much would you enjoy each activity?</p>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.5rem;">🧭 {_t("RIASEC Career Assessment")}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p class="sub-message">{_t("Page")} {current_page + 1} {_t("of")} {total_pages} • {_t("How much would you enjoy each activity?")}</p>', unsafe_allow_html=True)
 
     for i, q in enumerate(page_questions):
         q_index = start_idx + i
+        # NOTE: q['text'] comes straight from the language-specific JSON
+        # loaded by load_riasec_questions() (e.g. riasec.ta.json), so it's
+        # already in the selected language - shown as-is, not passed
+        # through _t(), to avoid re-translating already-localized text.
+        # The Likert options below (q['options']) ARE still passed through
+        # _t() because they come from the hardcoded English
+        # RIASEC_LIKERT_OPTIONS constant, not from the JSON file.
         st.markdown(f"""
         <div class="question-card">
             <div class="question-text">{q_index + 1}. {q['text']}</div>
@@ -7191,9 +8465,16 @@ def show_riasec_assessment():
 
         current_value = st.session_state.riasec_responses.get(q['id'], None)
 
+        # NOTE: `options=q['options']` and the returned `answer` value are
+        # kept exactly as-is (untranslated English strings) so scoring in
+        # calculate_riasec_scores() - which matches against
+        # RIASEC_LIKERT_SCORES - is completely unaffected. Only the
+        # on-screen label of each option is translated via format_func;
+        # Streamlit still returns the original English option as `answer`.
         answer = st.radio(
-            "Select your answer:",
+            t("labels.select_answer"),
             options=q['options'],
+            format_func=lambda opt: _t(opt),
             horizontal=True,
             key=f"riasec_q_{q['id']}_{q_index}",
             index=None
@@ -7208,12 +8489,12 @@ def show_riasec_assessment():
                          if st.session_state.riasec_responses.get(q['id']) is not None)
     progress = answered_count / total_questions if total_questions > 0 else 0
     st.progress(progress)
-    st.markdown(f'<p class="progress-text">📊 Progress: {answered_count}/{total_questions} questions answered ({int(progress*100)}%)</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="progress-text">📊 {_t("Progress:")} {answered_count}/{total_questions} {_t("questions answered")} ({int(progress*100)}%)</p>', unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col1:
         if current_page > 0:
-            if st.button("← Previous Page", key="riasec_prev_page", use_container_width=True):
+            if st.button(t("buttons.previous_page"), key="riasec_prev_page", use_container_width=True):
                 st.session_state.riasec_current_page -= 1
                 st.rerun()
 
@@ -7225,19 +8506,19 @@ def show_riasec_assessment():
 
         if end_idx < total_questions:
             if current_page_answered:
-                if st.button("Next Page →", key="riasec_next_page", type="primary", use_container_width=True):
+                if st.button(t("buttons.next_page"), key="riasec_next_page", type="primary", use_container_width=True):
                     st.session_state.riasec_current_page += 1
                     st.rerun()
             else:
-                st.button("Next Page →", key="riasec_next_page_disabled", use_container_width=True, disabled=True)
-                st.warning(f"⚠️ Please answer all {len(page_questions)} questions on this page")
+                st.button(t("buttons.next_page"), key="riasec_next_page_disabled", use_container_width=True, disabled=True)
+                st.warning(f"⚠️ {t('messages.warning.answer_all_prefix')} {len(page_questions)} {t('messages.warning.questions_on_page')}")
         else:
             all_answered = all(
                 st.session_state.riasec_responses.get(q['id']) is not None
                 for q in st.session_state.riasec_questions
             )
             if all_answered:
-                if st.button("Submit & See Results", key="riasec_submit", type="primary", use_container_width=True):
+                if st.button(t("buttons.submit_see_results"), key="riasec_submit", type="primary", use_container_width=True):
                     valid_responses = {k: v for k, v in st.session_state.riasec_responses.items() if v is not None}
                     st.session_state.riasec_scores = calculate_riasec_scores(
                         valid_responses, st.session_state.riasec_questions
@@ -7249,13 +8530,13 @@ def show_riasec_assessment():
                     st.rerun()
             else:
                 unanswered = total_questions - answered_count
-                st.button("Submit & See Results", key="riasec_submit_disabled", type="primary", use_container_width=True, disabled=True)
-                st.warning(f"⚠️ Please answer {unanswered} more question(s) before submitting")
+                st.button(t("buttons.submit_see_results"), key="riasec_submit_disabled", type="primary", use_container_width=True, disabled=True)
+                st.warning(f"⚠️ {t('messages.warning.answer_more_prefix')} {unanswered} {t('messages.warning.more_questions_before_submit')}")
 
     st.markdown("---")
     col_skip1, col_skip2, col_skip3 = st.columns([1, 2, 1])
     with col_skip2:
-        if st.button("⏭️ Skip for Now", key="riasec_skip", use_container_width=True):
+        if st.button(t("buttons.skip_for_now"), key="riasec_skip", use_container_width=True):
             st.session_state.page = 'recommendation'
             st.rerun()
 
@@ -7273,15 +8554,15 @@ def show_riasec_result():
     show_header()
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
 
-    st.markdown('<h1 class="welcome-heading" style="font-size:1.8rem;">🧭 Your RIASEC Career Assessment</h1>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.8rem;">🧭 {_t("Your RIASEC Career Assessment")}</h1>', unsafe_allow_html=True)
 
     if not st.session_state.riasec_scores:
-        st.markdown("""
+        st.markdown(f"""
         <div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">
-            <p>⚠️ No RIASEC responses found yet. Please take the assessment first.</p>
+            <p>⚠️ {_t("No RIASEC responses found yet. Please take the assessment first.")}</p>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("🧭 Take RIASEC Assessment", use_container_width=True):
+        if st.button(t("buttons.take_riasec_compass"), use_container_width=True):
             st.session_state.riasec_questions = get_riasec_questions(st.session_state.user_type)
             st.session_state.riasec_responses = {}
             st.session_state.riasec_current_page = 0
@@ -7304,7 +8585,7 @@ def show_riasec_result():
         st.session_state.user_type,
     )
     if st.session_state.riasec_result is None or st.session_state.riasec_result_fingerprint != current_fp:
-        with st.spinner("Analysing your RIASEC responses with AI..."):
+        with st.spinner(_t("Analysing your RIASEC responses with AI...")):
             result = generate_ai_riasec_assessment(
                 student_details,
                 st.session_state.riasec_scores,
@@ -7320,13 +8601,13 @@ def show_riasec_result():
     if not riasec_result:
         st.markdown(f"""
         <div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">
-            <p>⚠️ {(result or {}).get('message', 'Your RIASEC assessment is not available right now.')}</p>
+            <p>⚠️ {(result or {}).get('message', _t('Your RIASEC assessment is not available right now.'))}</p>
         </div>
         """, unsafe_allow_html=True)
         if st.session_state.get('riasec_result_error'):
-            with st.expander("Technical details (for debugging)"):
+            with st.expander(_t("Technical details (for debugging)")):
                 st.code(st.session_state.riasec_result_error)
-        if st.button("🔁 Retry AI Analysis", key="riasec_retry", use_container_width=True):
+        if st.button(t("buttons.retry_ai_analysis"), key="riasec_retry", use_container_width=True):
             st.session_state.riasec_result = None
             st.session_state.riasec_result_fingerprint = None
             st.rerun()
@@ -7334,7 +8615,7 @@ def show_riasec_result():
         st.markdown(f"""
         <div class="stream-detail-card">
             <div style="text-align:center;">
-                <div style="font-size:2rem; opacity:0.85; font-weight:600;">RIASEC Code: {riasec_result.get('riasec_code', '')}</div>
+                <div style="font-size:2rem; opacity:0.85; font-weight:600;">{_t("RIASEC Code:")} {riasec_result.get('riasec_code', '')}</div>
                 <h1 style="color:#D35400; margin:0.5rem 0;">{riasec_result.get('personality_type', '')}</h1>
             </div>
         </div>
@@ -7343,12 +8624,12 @@ def show_riasec_result():
         st.markdown(f"<p>{riasec_result.get('description', '')}</p>", unsafe_allow_html=True)
 
         # ---- Dimension score bars (raw scores, from calculate_riasec_scores) ----
-        st.markdown("**📊 Your RIASEC Dimension Scores**")
+        st.markdown(f"**{_t('📊 Your RIASEC Dimension Scores')}**")
         for cat, pct in st.session_state.riasec_scores['ranked']:
             st.markdown(f"""
             <div style="margin-bottom:0.6rem;">
                 <div style="display:flex; justify-content:space-between; font-size:0.9rem;">
-                    <span>{RIASEC_DIMENSIONS[cat]}</span><span>{pct}%</span>
+                    <span>{_t(RIASEC_DIMENSIONS[cat])}</span><span>{pct}%</span>
                 </div>
                 <div class="score-bar">
                     <div class="score-fill" style="width:{pct}%;"></div>
@@ -7359,7 +8640,7 @@ def show_riasec_result():
         st.markdown("<br>", unsafe_allow_html=True)
 
         # ---- Top Matching Careers ----
-        st.markdown("**🎯 Top Matching Careers**")
+        st.markdown(f"**{_t('🎯 Top Matching Careers')}**")
         careers = riasec_result.get('top_matching_careers', [])
         for row_start in range(0, len(careers), 2):
             row_careers = careers[row_start:row_start + 2]
@@ -7372,14 +8653,14 @@ def show_riasec_result():
                         <div class="score-bar">
                             <div class="score-fill" style="width:{career['match_percentage']}%;"></div>
                         </div>
-                        <div style="font-size:1.1rem; font-weight:700; margin:0.4rem 0;">{career['match_percentage']}% Match</div>
+                        <div style="font-size:1.1rem; font-weight:700; margin:0.4rem 0;">{career['match_percentage']}% {_t("Match")}</div>
                         <p style="font-size:0.85rem; line-height:1.4; text-align:left;">{career.get('why_it_fits', '')}</p>
                     </div>
                     """, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
 
         # ---- Strengths ----
-        st.markdown("**✨ Your Key Strengths**")
+        st.markdown(f"**{_t('✨ Your Key Strengths')}**")
         for strength in riasec_result.get('strengths', []):
             st.markdown(f"- {strength}")
 
@@ -7389,12 +8670,12 @@ def show_riasec_result():
         col_a, col_b = st.columns(2)
         with col_a:
             st.markdown('<div class="question-card" style="text-align:left; height:100%;">', unsafe_allow_html=True)
-            st.markdown("**📚 Learning Style**")
+            st.markdown(f"**{_t('📚 Learning Style')}**")
             st.markdown(riasec_result.get('learning_style', ''))
             st.markdown('</div>', unsafe_allow_html=True)
         with col_b:
             st.markdown('<div class="question-card" style="text-align:left; height:100%;">', unsafe_allow_html=True)
-            st.markdown("**🏢 Suitable Work Environment**")
+            st.markdown(f"**{_t('🏢 Suitable Work Environment')}**")
             st.markdown(riasec_result.get('suitable_work_environment', ''))
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -7402,7 +8683,7 @@ def show_riasec_result():
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("← Retake RIASEC Assessment", key="riasec_retake", use_container_width=True):
+        if st.button(t("buttons.retake_riasec"), key="riasec_retake", use_container_width=True):
             st.session_state.riasec_questions = get_riasec_questions(st.session_state.user_type)
             st.session_state.riasec_responses = {}
             st.session_state.riasec_current_page = 0
@@ -7413,7 +8694,7 @@ def show_riasec_result():
             st.session_state.page = 'riasec_assessment'
             st.rerun()
     with col2:
-        if st.button("Continue →", key="riasec_continue", type="primary", use_container_width=True):
+        if st.button(t("buttons.continue_arrow"), key="riasec_continue", type="primary", use_container_width=True):
             st.session_state.page = 'recommendation'
             st.rerun()
 
@@ -7426,7 +8707,7 @@ def show_recommendation():
     show_header()
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
 
-    st.markdown('<h1 class="welcome-heading" style="font-size:1.8rem;">🎯 Your Top 3 AI Career Recommendations</h1>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.8rem;">🎯 {_t("Your Top 3 AI Career Recommendations")}</h1>', unsafe_allow_html=True)
 
     student_details = {
         'name': st.session_state.student_name,
@@ -7445,7 +8726,7 @@ def show_recommendation():
         st.session_state.user_type,
     )
     if st.session_state.ai_recommendation is None or st.session_state.ai_recommendation_fingerprint != current_fp:
-        with st.spinner("Analysing your responses with AI..."):
+        with st.spinner(_t("Analysing your responses with AI...")):
             recommendation = generate_ai_recommendation(
                 student_details,
                 st.session_state.responses,
@@ -7462,13 +8743,13 @@ def show_recommendation():
     if recommendation.get("status") != "success" or not streams:
         st.markdown(f"""
         <div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">
-            <p>⚠️ {recommendation.get('message', 'AI recommendations are not available right now.')}</p>
+            <p>⚠️ {recommendation.get('message', _t('AI recommendations are not available right now.'))}</p>
         </div>
         """, unsafe_allow_html=True)
         if st.session_state.get('gemini_response_error'):
-            with st.expander("Technical details (for debugging)"):
+            with st.expander(_t("Technical details (for debugging)")):
                 st.code(st.session_state.gemini_response_error)
-        if st.button("🔁 Retry AI Analysis", use_container_width=True):
+        if st.button(t("buttons.retry_ai_analysis"), use_container_width=True):
             st.session_state.ai_recommendation = None
             st.session_state.ai_top_streams = None
             st.rerun()
@@ -7476,20 +8757,21 @@ def show_recommendation():
         card_styles = ["stream-card-high", "stream-card-good", "stream-card-fair"]
         cols = st.columns(3)
         for idx, stream in enumerate(streams[:3]):
+            display_stream = stream
             style = card_styles[idx % len(card_styles)]
             with cols[idx]:
                 st.markdown(f"""
                 <div class="{style} rec-card">
-                    <div style="font-size:0.85rem; opacity:0.85; font-weight:600;">#{idx + 1} RECOMMENDED</div>
-                    <h3 style="margin:0.4rem 0;">{stream['stream_name']}</h3>
+                    <div style="font-size:0.85rem; opacity:0.85; font-weight:600;">#{idx + 1} {_t("RECOMMENDED")}</div>
+                    <h3 style="margin:0.4rem 0;">{display_stream['stream_name']}</h3>
                     <div class="score-bar">
                         <div class="score-fill" style="width:{stream['match_percentage']}%;"></div>
                     </div>
-                    <div style="font-size:1.1rem; font-weight:700; margin:0.4rem 0;">{stream['match_percentage']}% Match</div>
-                    <p style="font-size:0.85rem; line-height:1.4; text-align:left;">{stream['explanation']}</p>
+                    <div style="font-size:1.1rem; font-weight:700; margin:0.4rem 0;">{stream['match_percentage']}% {_t("Match")}</div>
+                    <p style="font-size:0.85rem; line-height:1.4; text-align:left;">{display_stream['explanation']}</p>
                 </div>
                 """, unsafe_allow_html=True)
-                if st.button(f"Explore →", key=f"explore_{idx}", use_container_width=True):
+                if st.button(t("buttons.explore"), key=f"explore_{idx}", use_container_width=True):
                     st.session_state.selected_stream = stream['stream_name']
                     st.session_state.selected_stream_data = stream
                     st.session_state.ai_analysis = None
@@ -7502,11 +8784,11 @@ def show_recommendation():
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("← Back to Assessment", use_container_width=True):
+        if st.button(t("buttons.back_to_assessment"), use_container_width=True):
             st.session_state.page = 'assessment'
             st.rerun()
     with col2:
-        if streams and st.button("Continue to Report →", type="primary", use_container_width=True):
+        if streams and st.button(t("buttons.continue_report"), type="primary", use_container_width=True):
             if not st.session_state.get('selected_stream_data'):
                 st.session_state.selected_stream = streams[0]['stream_name']
                 st.session_state.selected_stream_data = streams[0]
@@ -7525,15 +8807,15 @@ def show_ai_analysis():
 
     stream = st.session_state.get('selected_stream_data')
     if not stream:
-        st.warning("No stream selected yet. Please go back and choose a recommendation.")
-        if st.button("← Back to Recommendations", use_container_width=True):
+        st.warning(t("messages.warning.no_stream_selected"))
+        if st.button(t("buttons.back_to_recommendations"), use_container_width=True):
             st.session_state.page = 'recommendation'
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
         return
 
-    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.8rem;">🧠 AI Analysis</h1>', unsafe_allow_html=True)
-    st.markdown(f'<p class="sub-message" style="text-align:center;">{stream["stream_name"]}</p>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.8rem;">🧠 {_t("AI Analysis")}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p class="sub-message" style="text-align:center;">{_t(stream["stream_name"])}</p>', unsafe_allow_html=True)
 
     student_details = {
         'name': st.session_state.student_name,
@@ -7558,7 +8840,7 @@ def show_ai_analysis():
         stream['stream_name'],
     )
     if st.session_state.ai_analysis is None or st.session_state.ai_analysis_fingerprint != current_fp:
-        with st.spinner("Generating your personalized AI Analysis..."):
+        with st.spinner(_t("Generating your personalized AI Analysis...")):
             result = generate_ai_analysis(
                 student_details,
                 st.session_state.responses,
@@ -7573,7 +8855,7 @@ def show_ai_analysis():
 
     if not analysis:
         msg = (st.session_state.ai_analysis_status or {}).get(
-            'message', 'AI Analysis could not be generated right now.'
+            'message', _t('AI Analysis could not be generated right now.')
         )
         st.markdown(f"""
         <div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">
@@ -7581,23 +8863,24 @@ def show_ai_analysis():
         </div>
         """, unsafe_allow_html=True)
         if st.session_state.get('ai_analysis_error'):
-            with st.expander("Technical details (for debugging)"):
+            with st.expander(_t("Technical details (for debugging)")):
                 st.code(st.session_state.ai_analysis_error)
-        if st.button("🔁 Retry AI Analysis", use_container_width=True):
+        if st.button(t("buttons.retry_ai_analysis"), use_container_width=True):
             st.session_state.ai_analysis = None
             st.rerun()
     else:
+        display_analysis = analysis
         col1, col2 = st.columns(2)
         with col1:
             st.markdown('<div class="stream-card-high compare-card" style="text-align:left;">', unsafe_allow_html=True)
-            st.markdown('<h3>💪 Strengths</h3>', unsafe_allow_html=True)
-            for s in analysis['strengths']:
+            st.markdown(f'<h3>💪 {_t("Strengths")}</h3>', unsafe_allow_html=True)
+            for s in display_analysis['strengths']:
                 st.markdown(f"- {s}")
             st.markdown('</div>', unsafe_allow_html=True)
         with col2:
             st.markdown('<div class="stream-card-potential compare-card" style="text-align:left;">', unsafe_allow_html=True)
-            st.markdown('<h3>🚀 Opportunities</h3>', unsafe_allow_html=True)
-            for o in analysis['opportunities']:
+            st.markdown(f'<h3>🚀 {_t("Opportunities")}</h3>', unsafe_allow_html=True)
+            for o in display_analysis['opportunities']:
                 st.markdown(f"- {o}")
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -7605,7 +8888,7 @@ def show_ai_analysis():
         # above has completed successfully, cached by the same fingerprint
         # approach, shown in a modern expandable card. ----
         if st.session_state.career_overview is None or st.session_state.career_overview_fingerprint != current_fp:
-            with st.spinner("Generating your Career Overview..."):
+            with st.spinner(_t("Generating your Career Overview...")):
                 overview_result = generate_career_overview(
                     student_details,
                     st.session_state.responses,
@@ -7622,7 +8905,7 @@ def show_ai_analysis():
 
         if not overview:
             ov_msg = (st.session_state.career_overview_status or {}).get(
-                'message', 'Career Overview could not be generated right now.'
+                'message', _t('Career Overview could not be generated right now.')
             )
             st.markdown(f"""
             <div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">
@@ -7630,37 +8913,38 @@ def show_ai_analysis():
             </div>
             """, unsafe_allow_html=True)
             if st.session_state.get('career_overview_error'):
-                with st.expander("Technical details (for debugging)"):
+                with st.expander(_t("Technical details (for debugging)")):
                     st.code(st.session_state.career_overview_error)
-            if st.button("🔁 Retry Career Overview", use_container_width=True):
+            if st.button(t("buttons.retry_career_overview"), use_container_width=True):
                 st.session_state.career_overview = None
                 st.rerun()
         else:
-            with st.expander(f"📘 Career Overview — {stream['stream_name']}", expanded=True):
+            display_overview = overview
+            with st.expander(f"📘 {_t('Career Overview')} — {_t(stream['stream_name'])}", expanded=True):
                 st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
-                st.markdown("**📖 Career Description**")
-                st.markdown(overview.get("career_description", ""))
+                st.markdown(f"**{_t('📖 Career Description')}**")
+                st.markdown(display_overview.get("career_description", ""))
                 st.markdown('</div>', unsafe_allow_html=True)
 
                 st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
-                st.markdown("**🎯 Why This Career Matches You**")
-                st.markdown(overview.get("why_matches", ""))
+                st.markdown(f"**{_t('🎯 Why This Career Matches You')}**")
+                st.markdown(display_overview.get("why_matches", ""))
                 st.markdown('</div>', unsafe_allow_html=True)
 
                 st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
-                st.markdown("**🗓️ Daily Responsibilities**")
-                for item in overview.get("daily_responsibilities", []):
+                st.markdown(f"**{_t('🗓️ Daily Responsibilities')}**")
+                for item in display_overview.get("daily_responsibilities", []):
                     st.markdown(f"- {item}")
                 st.markdown('</div>', unsafe_allow_html=True)
 
                 st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
-                st.markdown("**📈 Future Scope**")
-                st.markdown(overview.get("future_scope", ""))
+                st.markdown(f"**{_t('📈 Future Scope')}**")
+                st.markdown(display_overview.get("future_scope", ""))
                 st.markdown('</div>', unsafe_allow_html=True)
 
                 st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
-                st.markdown("**🌱 Career Growth**")
-                st.markdown(overview.get("career_growth", ""))
+                st.markdown(f"**{_t('🌱 Career Growth')}**")
+                st.markdown(display_overview.get("career_growth", ""))
                 st.markdown('</div>', unsafe_allow_html=True)
 
             # ---- Related Career Roles: grouped by AI-generated category,
@@ -7670,8 +8954,8 @@ def show_ai_analysis():
             if role_groups:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
-                st.markdown("**🧭 Related Career Roles**")
-                st.markdown("Click a role to see its full AI-generated Career Detail page.")
+                st.markdown(f"**{_t('🧭 Related Career Roles')}**")
+                st.markdown(_t("Click a role to see its full AI-generated Career Detail page."))
                 st.markdown('</div>', unsafe_allow_html=True)
 
                 for g_idx, group in enumerate(role_groups):
@@ -7679,14 +8963,14 @@ def show_ai_analysis():
                     roles = group.get("roles", [])
                     if not roles:
                         continue
-                    st.markdown(f"##### {category}")
+                    st.markdown(f"##### {_t(category)}")
                     for row_start in range(0, len(roles), 3):
                         row_roles = roles[row_start:row_start + 3]
                         row_cols = st.columns(3)
                         for j, role in enumerate(row_roles):
                             r_idx = row_start + j
                             with row_cols[j]:
-                                if st.button(role, key=f"ov_role_{g_idx}_{r_idx}", use_container_width=True):
+                                if st.button(_t(role), key=f"ov_role_{g_idx}_{r_idx}", use_container_width=True):
                                     st.session_state.selected_career_role = role
                                     st.session_state.ai_role_detail = None
                                     st.session_state.role_detail_return_page = 'ai_analysis'
@@ -7697,11 +8981,11 @@ def show_ai_analysis():
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("← Back to Recommendations", use_container_width=True):
+        if st.button(t("buttons.back_to_recommendations"), use_container_width=True):
             st.session_state.page = 'recommendation'
             st.rerun()
     with col2:
-        if analysis and st.button("Continue to Full Report →", type="primary", use_container_width=True):
+        if analysis and st.button(t("buttons.continue_full_report"), type="primary", use_container_width=True):
             st.session_state.ai_deep_dive = None
             st.session_state.page = 'report'
             st.rerun()
@@ -7717,15 +9001,15 @@ def show_role_detail():
     stream = st.session_state.get('selected_stream_data')
 
     if not role_name or not stream:
-        st.warning("No career role selected yet. Please go back to your report.")
-        if st.button("← Back to Report", use_container_width=True):
+        st.warning(t("messages.warning.no_role_selected"))
+        if st.button(t("buttons.back_to_report"), use_container_width=True):
             st.session_state.page = 'report'
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
         return
 
-    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.7rem;">🧭 {role_name}</h1>', unsafe_allow_html=True)
-    st.markdown(f'<p class="sub-message" style="text-align:center;">within {stream["stream_name"]}</p>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.7rem;">🧭 {_t(role_name)}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p class="sub-message" style="text-align:center;">{_t("within")} {_t(stream["stream_name"])}</p>', unsafe_allow_html=True)
 
     student_details = {
         'name': st.session_state.student_name,
@@ -7749,7 +9033,7 @@ def show_role_detail():
         role_name,
     )
     if st.session_state.ai_role_detail is None or st.session_state.ai_role_detail_fingerprint != current_fp:
-        with st.spinner(f"Generating AI breakdown for {role_name}..."):
+        with st.spinner(f"{_t('Generating AI breakdown for')} {_t(role_name)}..."):
             result = generate_ai_role_detail(
                 student_details,
                 role_name,
@@ -7765,7 +9049,7 @@ def show_role_detail():
 
     if not detail:
         msg = (st.session_state.ai_role_detail_status or {}).get(
-            'message', 'This role breakdown could not be generated right now.'
+            'message', _t('This role breakdown could not be generated right now.')
         )
         st.markdown(f"""
         <div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">
@@ -7773,20 +9057,21 @@ def show_role_detail():
         </div>
         """, unsafe_allow_html=True)
         if st.session_state.get('ai_role_detail_error'):
-            with st.expander("Technical details (for debugging)"):
+            with st.expander(_t("Technical details (for debugging)")):
                 st.code(st.session_state.ai_role_detail_error)
-        if st.button("🔁 Retry", use_container_width=True):
+        if st.button(t("buttons.retry"), use_container_width=True):
             st.session_state.ai_role_detail = None
             st.rerun()
     else:
         def section(title, icon, body):
             st.markdown(f'<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
-            st.markdown(f"**{icon} {title}**")
-            if isinstance(body, list):
-                for item in body:
+            st.markdown(f"**{icon} {_t(title)}**")
+            display_body = body
+            if isinstance(display_body, list):
+                for item in display_body:
                     st.markdown(f"- {item}")
             else:
-                st.markdown(body)
+                st.markdown(display_body)
             st.markdown('</div>', unsafe_allow_html=True)
 
         section("Career Description", "📘", detail.get("career_description", ""))
@@ -7800,21 +9085,21 @@ def show_role_detail():
         section("Future Demand", "🔮", detail.get("future_demand", ""))
 
     if detail:
-        if st.button(f"🗓️ View 12-Month Roadmap for {role_name}", type="primary", use_container_width=True):
+        if st.button(f"🗓️ {_t('View 12-Month Roadmap for')} {_t(role_name)}", type="primary", use_container_width=True):
             st.session_state.roadmap_career_name = role_name
             st.session_state.learning_roadmap = None
             st.session_state.roadmap_return_page = 'role_detail'
             st.session_state.page = 'learning_roadmap'
             st.rerun()
 
-        if st.button(f"🧭 View AI Skill Gap Analysis for {role_name}", use_container_width=True):
+        if st.button(f"🧭 {_t('View AI Skill Gap Analysis for')} {_t(role_name)}", use_container_width=True):
             st.session_state.skillgap_career_name = role_name
             st.session_state.skill_gap_analysis = None
             st.session_state.skillgap_return_page = 'role_detail'
             st.session_state.page = 'skill_gap'
             st.rerun()
 
-        if st.button(f"📄 Get AI Resume Suggestions for {role_name}", use_container_width=True):
+        if st.button(f"📄 {_t('Get AI Resume Suggestions for')} {_t(role_name)}", use_container_width=True):
             st.session_state.resume_career_name = role_name
             st.session_state.resume_suggestions = None
             st.session_state.resume_suggestions_return_page = 'role_detail'
@@ -7822,28 +9107,28 @@ def show_role_detail():
             st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("📥 Download This as PDF (Career Detail + Roadmap + Skill Gap + Resume)", use_container_width=True):
-            with st.spinner("Generating your PDF..."):
+        if st.button(t("buttons.download_full_pdf"), use_container_width=True):
+            with st.spinner(_t("Generating your PDF...")):
                 try:
                     pdf_path = generate_role_detail_pdf(role_name, stream['stream_name'])
                     with open(pdf_path, "rb") as pdf_file:
                         pdf_data = pdf_file.read()
                     safe_role_name = "".join(c if c.isalnum() else "_" for c in role_name)
                     st.download_button(
-                        label="💾 Save PDF",
+                        label=_t("💾 Save PDF"),
                         data=pdf_data,
                         file_name=f"{st.session_state.student_name}_{safe_role_name}_career_detail.pdf",
                         mime="application/pdf",
                         key="download_role_detail_pdf"
                     )
                     os.unlink(pdf_path)
-                    st.success("✅ PDF generated successfully! Sections you haven't opened yet (Roadmap/Skill Gap/Resume) will be noted as not yet generated - visit them first to include their content.")
+                    st.success(t("messages.success.pdf_generated_full"))
                 except Exception as e:
-                    st.error(f"Error generating PDF: {str(e)}")
+                    st.error(f"{t('messages.error.pdf_generation')} {str(e)}")
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
-    if st.button("← Back", use_container_width=True):
+    if st.button(t("buttons.back_arrow"), use_container_width=True):
         st.session_state.page = st.session_state.get('role_detail_return_page') or 'report'
         st.rerun()
 
@@ -7866,15 +9151,15 @@ def show_learning_roadmap():
     career_name = st.session_state.get('roadmap_career_name')
 
     if not career_name:
-        st.warning("No career selected yet for a roadmap. Please go back and select a career first.")
-        if st.button("← Back to Report", use_container_width=True):
+        st.warning(t("messages.warning.no_career_roadmap"))
+        if st.button(t("buttons.back_to_report"), use_container_width=True):
             st.session_state.page = 'report'
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
         return
 
-    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.6rem;">🗓️ 12-Month Learning Roadmap</h1>', unsafe_allow_html=True)
-    st.markdown(f'<p class="sub-message" style="text-align:center;">for {career_name}</p>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.6rem;">🗓️ {_t("12-Month Learning Roadmap")}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p class="sub-message" style="text-align:center;">{_t("for")} {_t(career_name)}</p>', unsafe_allow_html=True)
 
     student_details = {
         'name': st.session_state.student_name,
@@ -7896,7 +9181,7 @@ def show_learning_roadmap():
         career_name,
     )
     if st.session_state.learning_roadmap is None or st.session_state.learning_roadmap_fingerprint != current_fp:
-        with st.spinner(f"Generating your personalized 12-month roadmap for {career_name}..."):
+        with st.spinner(f"{_t('Generating your personalized 12-month roadmap for')} {_t(career_name)}..."):
             result = generate_ai_learning_roadmap(
                 student_details,
                 st.session_state.responses,
@@ -7913,7 +9198,7 @@ def show_learning_roadmap():
 
     if not roadmap:
         msg = (st.session_state.learning_roadmap_status or {}).get(
-            'message', 'This learning roadmap could not be generated right now.'
+            'message', _t('This learning roadmap could not be generated right now.')
         )
         error_html = (
             f'<div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">'
@@ -7922,53 +9207,54 @@ def show_learning_roadmap():
         )
         st.markdown(error_html, unsafe_allow_html=True)
         if st.session_state.get('learning_roadmap_error'):
-            with st.expander("Technical details (for debugging)"):
+            with st.expander(_t("Technical details (for debugging)")):
                 st.code(st.session_state.learning_roadmap_error)
-        if st.button("🔁 Retry", use_container_width=True):
+        if st.button(t("buttons.retry"), use_container_width=True):
             st.session_state.learning_roadmap = None
             st.rerun()
     else:
-        level_label = "Beginner Level" if st.session_state.user_type == 'school' else "Advanced / Industry Level"
+        display_roadmap = roadmap
+        level_label = _t("Beginner Level") if st.session_state.user_type == 'school' else _t("Advanced / Industry Level")
         overview_html = (
             f'<div class="roadmap-overview-card">'
-            f'<strong>📌 Roadmap Level:</strong> {level_label}<br><br>'
-            f'<p>{roadmap.get("roadmap_overview", "")}</p>'
+            f'<strong>📌 {_t("Roadmap Level")}:</strong> {level_label}<br><br>'
+            f'<p>{display_roadmap.get("roadmap_overview", "")}</p>'
             f'</div>'
         )
         st.markdown(overview_html, unsafe_allow_html=True)
 
         st.markdown('<div class="roadmap-timeline">', unsafe_allow_html=True)
-        for month in roadmap.get('months', []):
+        for month in display_roadmap.get('months', []):
             month_num = month.get('month_number', '')
 
             def bullet_list(items):
                 items = items or []
                 if not items:
-                    return "<li><em>None this month</em></li>"
+                    return f"<li><em>{_t('None this month')}</em></li>"
                 return "".join(f"<li>{item}</li>" for item in items)
 
             certs = month.get('certifications', []) or []
             cert_html = (
                 "".join(f'<span class="roadmap-cert-chip">📜 {c}</span>' for c in certs)
-                if certs else "<em>No certification this month</em>"
+                if certs else f"<em>{_t('No certification this month')}</em>"
             )
 
             month_html = (
                 f'<div class="roadmap-month">'
                 f'<div class="roadmap-month-dot">{month_num}</div>'
                 f'<div class="roadmap-month-card">'
-                f'<h4>Month {month_num}: {month.get("month_title", "")}</h4>'
-                f'<div class="roadmap-section-label">🧠 Skills to Learn</div>'
+                f'<h4>{_t("Month")} {month_num}: {month.get("month_title", "")}</h4>'
+                f'<div class="roadmap-section-label">🧠 {_t("Skills to Learn")}</div>'
                 f'<ul>{bullet_list(month.get("skills_to_learn"))}</ul>'
-                f'<div class="roadmap-section-label">📖 Topics</div>'
+                f'<div class="roadmap-section-label">📖 {_t("Topics")}</div>'
                 f'<ul>{bullet_list(month.get("topics"))}</ul>'
-                f'<div class="roadmap-section-label">✍️ Practice Activities</div>'
+                f'<div class="roadmap-section-label">✍️ {_t("Practice Activities")}</div>'
                 f'<ul>{bullet_list(month.get("practice_activities"))}</ul>'
-                f'<div class="roadmap-section-label">🛠️ Mini Projects</div>'
+                f'<div class="roadmap-section-label">🛠️ {_t("Mini Projects")}</div>'
                 f'<ul>{bullet_list(month.get("mini_projects"))}</ul>'
-                f'<div class="roadmap-section-label">🆓 Recommended Free Resources</div>'
+                f'<div class="roadmap-section-label">🆓 {_t("Recommended Free Resources")}</div>'
                 f'<ul>{bullet_list(month.get("free_resources"))}</ul>'
-                f'<div class="roadmap-section-label">📜 Certifications</div>'
+                f'<div class="roadmap-section-label">📜 {_t("Certifications")}</div>'
                 f'<div>{cert_html}</div>'
                 f'</div>'
                 f'</div>'
@@ -7978,7 +9264,7 @@ def show_learning_roadmap():
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
-    if st.button("← Back", use_container_width=True):
+    if st.button(t("buttons.back_arrow"), use_container_width=True):
         st.session_state.page = st.session_state.get('roadmap_return_page') or 'report'
         st.rerun()
 
@@ -8002,15 +9288,15 @@ def show_skill_gap_analysis():
     career_name = st.session_state.get('skillgap_career_name')
 
     if not career_name:
-        st.warning("No career selected yet for a skill gap analysis. Please go back and select a career first.")
-        if st.button("← Back to Report", use_container_width=True):
+        st.warning(t("messages.warning.no_career_skill_gap"))
+        if st.button(t("buttons.back_to_report"), use_container_width=True):
             st.session_state.page = 'report'
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
         return
 
-    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.6rem;">🧭 AI Skill Gap Analysis</h1>', unsafe_allow_html=True)
-    st.markdown(f'<p class="sub-message" style="text-align:center;">for {career_name}</p>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.6rem;">🧭 {_t("AI Skill Gap Analysis")}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p class="sub-message" style="text-align:center;">{_t("for")} {_t(career_name)}</p>', unsafe_allow_html=True)
 
     student_details = {
         'name': st.session_state.student_name,
@@ -8032,7 +9318,7 @@ def show_skill_gap_analysis():
         career_name,
     )
     if st.session_state.skill_gap_analysis is None or st.session_state.skill_gap_analysis_fingerprint != current_fp:
-        with st.spinner(f"Analyzing your skill gap for {career_name}..."):
+        with st.spinner(f"{_t('Analyzing your skill gap for')} {_t(career_name)}..."):
             result = generate_ai_skill_gap_analysis(
                 student_details,
                 st.session_state.responses,
@@ -8050,7 +9336,7 @@ def show_skill_gap_analysis():
 
     if not analysis:
         msg = (st.session_state.skill_gap_analysis_status or {}).get(
-            'message', 'This skill gap analysis could not be generated right now.'
+            'message', _t('This skill gap analysis could not be generated right now.')
         )
         st.markdown(f"""
         <div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">
@@ -8058,9 +9344,9 @@ def show_skill_gap_analysis():
         </div>
         """, unsafe_allow_html=True)
         if st.session_state.get('skill_gap_analysis_error'):
-            with st.expander("Technical details (for debugging)"):
+            with st.expander(_t("Technical details (for debugging)")):
                 st.code(st.session_state.skill_gap_analysis_error)
-        if st.button("🔁 Retry", use_container_width=True):
+        if st.button(t("buttons.retry"), use_container_width=True):
             st.session_state.skill_gap_analysis = None
             st.rerun()
     else:
@@ -8069,7 +9355,7 @@ def show_skill_gap_analysis():
         st.markdown(
             f'<div class="skillgap-readiness-card">'
             f'<span class="skillgap-readiness-score">{readiness_score}%</span> '
-            f'<strong>Overall Career Readiness</strong>'
+            f'<strong>{_t("Overall Career Readiness")}</strong>'
             f'<p style="margin-top:0.5rem;">{analysis.get("readiness_summary", "")}</p>'
             f'</div>',
             unsafe_allow_html=True,
@@ -8077,49 +9363,53 @@ def show_skill_gap_analysis():
         st.progress(max(0, min(100, int(readiness_score))) / 100)
 
         # ---- Current Strengths ----
-        st.markdown('<div class="skillgap-section-title">💪 Current Strengths</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="skillgap-section-title">💪 {_t("Current Strengths")}</div>', unsafe_allow_html=True)
         for item in analysis.get('current_strengths', []):
             score = max(0, min(100, int(item.get('proficiency_score', 0) or 0)))
+            display_item = item
             st.markdown(
                 f'<div class="skillgap-card">'
-                f'<div class="skillgap-card-title">{item.get("skill_name", "")} — {score}%</div>'
+                f'<div class="skillgap-card-title">{display_item.get("skill_name", "")} — {score}%</div>'
                 f'<div class="skillgap-bar-track"><div class="skillgap-bar-fill-strength" style="width:{score}%;"></div></div>'
-                f'<div class="skillgap-card-explanation">{item.get("explanation", "")}</div>'
+                f'<div class="skillgap-card-explanation">{display_item.get("explanation", "")}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
         # ---- Missing Skills ----
-        st.markdown('<div class="skillgap-section-title">🧩 Missing Skills</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="skillgap-section-title">🧩 {_t("Missing Skills")}</div>', unsafe_allow_html=True)
         importance_class_map = {"critical": "critical", "high": "high", "medium": "medium"}
         for item in analysis.get('missing_skills', []):
             importance = (item.get('importance') or 'Medium')
             badge_class = importance_class_map.get(importance.strip().lower(), 'medium')
+            display_item = item
+            display_importance = _t(importance)
             st.markdown(
                 f'<div class="skillgap-card">'
-                f'<span class="skillgap-badge skillgap-badge-{badge_class}">{importance}</span>'
-                f'<div class="skillgap-card-title">{item.get("skill_name", "")}</div>'
-                f'<div class="skillgap-card-explanation">{item.get("explanation", "")}</div>'
+                f'<span class="skillgap-badge skillgap-badge-{badge_class}">{display_importance}</span>'
+                f'<div class="skillgap-card-title">{display_item.get("skill_name", "")}</div>'
+                f'<div class="skillgap-card-explanation">{display_item.get("explanation", "")}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
         # ---- Priority Skills ----
-        st.markdown('<div class="skillgap-section-title">🎯 Priority Skills</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="skillgap-section-title">🎯 {_t("Priority Skills")}</div>', unsafe_allow_html=True)
         for item in analysis.get('priority_skills', []):
+            display_item = item
             st.markdown(
                 f'<div class="skillgap-card" style="display:flex; align-items:flex-start;">'
                 f'<span class="skillgap-priority-rank">{item.get("priority_rank", "")}</span>'
                 f'<div>'
-                f'<div class="skillgap-card-title">{item.get("skill_name", "")}</div>'
-                f'<div class="skillgap-card-explanation">{item.get("reason", "")}</div>'
+                f'<div class="skillgap-card-title">{display_item.get("skill_name", "")}</div>'
+                f'<div class="skillgap-card-explanation">{display_item.get("reason", "")}</div>'
                 f'</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
         # ---- Learning Difficulty ----
-        st.markdown('<div class="skillgap-section-title">⚙️ Learning Difficulty</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="skillgap-section-title">⚙️ {_t("Learning Difficulty")}</div>', unsafe_allow_html=True)
         difficulty_class_map = {
             "easy": "easy", "moderate": "moderate", "hard": "hard", "very hard": "very-hard",
         }
@@ -8127,26 +9417,29 @@ def show_skill_gap_analysis():
             diff_score = max(0, min(100, int(item.get('difficulty_score', 0) or 0)))
             label = item.get('difficulty_label', 'Moderate')
             badge_class = difficulty_class_map.get(label.strip().lower(), 'moderate')
+            display_item = item
+            display_label = _t(label)
             st.markdown(
                 f'<div class="skillgap-card">'
-                f'<span class="skillgap-badge skillgap-badge-{badge_class}">{label}</span>'
-                f'<div class="skillgap-card-title">{item.get("skill_name", "")}</div>'
+                f'<span class="skillgap-badge skillgap-badge-{badge_class}">{display_label}</span>'
+                f'<div class="skillgap-card-title">{display_item.get("skill_name", "")}</div>'
                 f'<div class="skillgap-bar-track"><div class="skillgap-bar-fill-difficulty" style="width:{diff_score}%;"></div></div>'
-                f'<div class="skillgap-card-explanation">{item.get("reason", "")}</div>'
+                f'<div class="skillgap-card-explanation">{display_item.get("reason", "")}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
         # ---- Recommended Learning Order ----
-        st.markdown('<div class="skillgap-section-title">🗺️ Recommended Learning Order</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="skillgap-section-title">🗺️ {_t("Recommended Learning Order")}</div>', unsafe_allow_html=True)
         order_html = ['<div class="skillgap-order-timeline">']
         for item in analysis.get('recommended_learning_order', []):
+            display_item = item
             order_html.append(
                 f'<div class="skillgap-order-item">'
                 f'<div class="skillgap-order-dot">{item.get("order", "")}</div>'
                 f'<div class="skillgap-card" style="margin-bottom:0;">'
-                f'<div class="skillgap-card-title">{item.get("skill_name", "")}</div>'
-                f'<div class="skillgap-card-explanation">{item.get("rationale", "")}</div>'
+                f'<div class="skillgap-card-title">{display_item.get("skill_name", "")}</div>'
+                f'<div class="skillgap-card-explanation">{display_item.get("rationale", "")}</div>'
                 f'</div>'
                 f'</div>'
             )
@@ -8154,20 +9447,21 @@ def show_skill_gap_analysis():
         st.markdown("".join(order_html), unsafe_allow_html=True)
 
         # ---- Estimated Learning Time ----
-        st.markdown('<div class="skillgap-section-title">⏱️ Estimated Learning Time</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="skillgap-section-title">⏱️ {_t("Estimated Learning Time")}</div>', unsafe_allow_html=True)
         for item in analysis.get('estimated_learning_time', []):
+            display_item = item
             st.markdown(
                 f'<div class="skillgap-card">'
-                f'<div class="skillgap-card-title">{item.get("skill_name", "")}</div>'
-                f'<span class="skillgap-time-chip">⏳ {item.get("estimated_duration", "")}</span>'
-                f'<span class="skillgap-time-chip">📅 {item.get("weekly_commitment", "")}</span>'
+                f'<div class="skillgap-card-title">{display_item.get("skill_name", "")}</div>'
+                f'<span class="skillgap-time-chip">⏳ {display_item.get("estimated_duration", "")}</span>'
+                f'<span class="skillgap-time-chip">📅 {display_item.get("weekly_commitment", "")}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
-    if st.button("← Back", use_container_width=True):
+    if st.button(t("buttons.back_arrow"), use_container_width=True):
         st.session_state.page = st.session_state.get('skillgap_return_page') or 'report'
         st.rerun()
 
@@ -8235,15 +9529,15 @@ def show_resume_suggestions():
     career_name = st.session_state.get('resume_career_name')
 
     if not career_name:
-        st.warning("No career selected yet for resume suggestions. Please go back and select a career first.")
-        if st.button("← Back to Report", use_container_width=True):
+        st.warning(t("messages.warning.no_career_resume"))
+        if st.button(t("buttons.back_to_report"), use_container_width=True):
             st.session_state.page = 'report'
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
         return
 
-    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.6rem;">📄 AI Resume Suggestions</h1>', unsafe_allow_html=True)
-    st.markdown(f'<p class="sub-message" style="text-align:center;">for {career_name}</p>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.6rem;">📄 {_t("AI Resume Suggestions")}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p class="sub-message" style="text-align:center;">{_t("for")} {_t(career_name)}</p>', unsafe_allow_html=True)
     st.markdown(
         '<div class="resume-note-card">✨ These are personalized <strong>suggestions</strong> to guide '
         'what you build and include on your resume - not a finished resume. Use them as a checklist '
@@ -8273,7 +9567,7 @@ def show_resume_suggestions():
         roadmap_context,
     )
     if st.session_state.resume_suggestions is None or st.session_state.resume_suggestions_fingerprint != current_fp:
-        with st.spinner(f"Generating personalized resume suggestions for {career_name}..."):
+        with st.spinner(f"{_t('Generating personalized resume suggestions for')} {_t(career_name)}..."):
             result = generate_ai_resume_suggestions(
                 student_details,
                 career_name,
@@ -8290,7 +9584,7 @@ def show_resume_suggestions():
 
     if not suggestions:
         msg = (st.session_state.resume_suggestions_status or {}).get(
-            'message', 'These resume suggestions could not be generated right now.'
+            'message', _t('These resume suggestions could not be generated right now.')
         )
         st.markdown(f"""
         <div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">
@@ -8298,36 +9592,36 @@ def show_resume_suggestions():
         </div>
         """, unsafe_allow_html=True)
         if st.session_state.get('resume_suggestions_error'):
-            with st.expander("Technical details (for debugging)"):
+            with st.expander(_t("Technical details (for debugging)")):
                 st.code(st.session_state.resume_suggestions_error)
-        if st.button("🔁 Retry", use_container_width=True):
+        if st.button(t("buttons.retry"), use_container_width=True):
             st.session_state.resume_suggestions = None
             st.rerun()
     else:
         # ---- Resume Headline options ----
-        st.markdown('<div class="resume-section-title">🏷️ Resume Headline</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="resume-section-title">🏷️ {_t("Resume Headline")}</div>', unsafe_allow_html=True)
         for idx, headline in enumerate(suggestions.get('resume_headline', []), start=1):
             st.markdown(
                 f'<div class="resume-card">'
-                f'<span class="resume-option-badge">Option {idx}</span>'
+                f'<span class="resume-option-badge">{_t("Option")} {idx}</span>'
                 f'<div class="resume-card-body">{headline}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
         # ---- Career Objective options ----
-        st.markdown('<div class="resume-section-title">🎯 Career Objective</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="resume-section-title">🎯 {_t("Career Objective")}</div>', unsafe_allow_html=True)
         for idx, objective in enumerate(suggestions.get('career_objective', []), start=1):
             st.markdown(
                 f'<div class="resume-card">'
-                f'<span class="resume-option-badge">Option {idx}</span>'
+                f'<span class="resume-option-badge">{_t("Option")} {idx}</span>'
                 f'<div class="resume-card-body">{objective}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
         # ---- Key Skills ----
-        st.markdown('<div class="resume-section-title">🛠️ Key Skills to Feature</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="resume-section-title">🛠️ {_t("Key Skills to Feature")}</div>', unsafe_allow_html=True)
         chips_html = "".join(
             f'<span class="resume-skill-chip">{item.get("skill_name", "")}</span>'
             for item in suggestions.get('key_skills', [])
@@ -8343,7 +9637,7 @@ def show_resume_suggestions():
             )
 
         # ---- Projects to Include ----
-        st.markdown('<div class="resume-section-title">🧪 Projects to Include</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="resume-section-title">🧪 {_t("Projects to Include")}</div>', unsafe_allow_html=True)
         for item in suggestions.get('projects_to_include', []):
             st.markdown(
                 f'<div class="resume-card">'
@@ -8355,7 +9649,7 @@ def show_resume_suggestions():
             )
 
         # ---- Certifications ----
-        st.markdown('<div class="resume-section-title">📜 Certifications</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="resume-section-title">📜 {_t("Certifications")}</div>', unsafe_allow_html=True)
         cert_chips_html = "".join(
             f'<span class="resume-cert-chip">📜 {item.get("certification_name", "")}</span>'
             for item in suggestions.get('certifications', [])
@@ -8371,7 +9665,7 @@ def show_resume_suggestions():
             )
 
         # ---- Achievements ----
-        st.markdown('<div class="resume-section-title">🏆 Achievements to Pursue/Highlight</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="resume-section-title">🏆 {_t("Achievements to Pursue/Highlight")}</div>', unsafe_allow_html=True)
         for item in suggestions.get('achievements', []):
             st.markdown(
                 f'<div class="resume-card">'
@@ -8382,7 +9676,7 @@ def show_resume_suggestions():
             )
 
         # ---- Portfolio Suggestions ----
-        st.markdown('<div class="resume-section-title">💼 Portfolio Suggestions</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="resume-section-title">💼 {_t("Portfolio Suggestions")}</div>', unsafe_allow_html=True)
         for item in suggestions.get('portfolio_suggestions', []):
             st.markdown(
                 f'<div class="resume-card">'
@@ -8394,7 +9688,7 @@ def show_resume_suggestions():
             )
 
         # ---- Internship Suggestions ----
-        st.markdown('<div class="resume-section-title">🤝 Internship Suggestions</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="resume-section-title">🤝 {_t("Internship Suggestions")}</div>', unsafe_allow_html=True)
         for item in suggestions.get('internship_suggestions', []):
             st.markdown(
                 f'<div class="resume-card">'
@@ -8406,7 +9700,7 @@ def show_resume_suggestions():
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
-    if st.button("← Back", use_container_width=True):
+    if st.button(t("buttons.back_arrow"), use_container_width=True):
         st.session_state.page = st.session_state.get('resume_suggestions_return_page') or 'report'
         st.rerun()
 
@@ -8462,7 +9756,7 @@ def show_career_chatbot():
     show_header()
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
 
-    st.markdown('<h1 class="welcome-heading" style="font-size:1.6rem;">🤖 AI Career Chatbot</h1>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.6rem;">🤖 {_t("AI Career Chatbot")}</h1>', unsafe_allow_html=True)
     st.markdown(
         '<p class="sub-message" style="text-align:center;">Ask me anything about your career journey</p>',
         unsafe_allow_html=True,
@@ -8477,7 +9771,7 @@ def show_career_chatbot():
     header_col1, header_col2 = st.columns([5, 1.3])
     with header_col2:
         with st.container(key="chatbot_clear_row"):
-            if st.button("🗑️ Clear Chat", use_container_width=True):
+            if st.button(t("buttons.clear_chat"), use_container_width=True):
                 st.session_state.chatbot_messages = []
                 st.session_state.chatbot_error = None
                 st.rerun()
@@ -8499,12 +9793,15 @@ def show_career_chatbot():
 
     suggested = st.session_state.chatbot_suggested_questions or []
     if suggested:
-        st.markdown('<div class="chatbot-suggested-label">💡 Suggested Questions</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="chatbot-suggested-label">💡 {_t("Suggested Questions")}</div>', unsafe_allow_html=True)
         with st.container(key="chatbot_suggested_row"):
             cols = st.columns(2)
             clicked_question = None
             for i, question in enumerate(suggested):
                 with cols[i % 2]:
+                    # MODIFICATION (i18n): `question` is Gemini-generated
+                    # content, already produced directly in the selected
+                    # language - not passed through _t().
                     if st.button(question, key=f"chatbot_suggested_{i}", use_container_width=True):
                         clicked_question = question
             if clicked_question:
@@ -8516,10 +9813,13 @@ def show_career_chatbot():
     # ---- Conversation history ----
     for message in st.session_state.chatbot_messages:
         with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+            if message["role"] == "assistant":
+                st.markdown(message["content"])
+            else:
+                st.markdown(message["content"])
 
     if st.session_state.chatbot_error:
-        st.caption(f"⚠️ Last message failed: {st.session_state.chatbot_error}")
+        st.caption(f"⚠️ {_t('Last message failed:')} {st.session_state.chatbot_error}")
 
     # A suggested-question click sets chatbot_pending_message and reruns;
     # handle it here so it goes through the exact same send flow as
@@ -8529,13 +9829,13 @@ def show_career_chatbot():
         st.session_state.chatbot_pending_message = None
         _send_chatbot_message(pending_message)
 
-    typed_message = st.chat_input("Type your question about careers, skills, roadmap, interviews...")
+    typed_message = st.chat_input(_t("Type your question about careers, skills, roadmap, interviews..."))
     if typed_message:
         _send_chatbot_message(typed_message)
 
     st.markdown("<hr>", unsafe_allow_html=True)
 
-    if st.button("← Back", use_container_width=True):
+    if st.button(t("buttons.back_arrow"), use_container_width=True):
         st.session_state.page = st.session_state.get('chatbot_return_page') or 'report'
         st.rerun()
 
@@ -8546,14 +9846,14 @@ def show_report():
     show_header()
     st.markdown('<div class="main-card">', unsafe_allow_html=True)
     
-    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.5rem;">Your Personalized Career Report</h1>', unsafe_allow_html=True)
-    st.markdown(f'<p class="sub-message">Prepared for {st.session_state.student_name}</p>', unsafe_allow_html=True)
+    st.markdown(f'<h1 class="welcome-heading" style="font-size:1.5rem;">{_t("Your Personalized Career Report")}</h1>', unsafe_allow_html=True)
+    st.markdown(f'<p class="sub-message">{_t("Prepared for")} {st.session_state.student_name}</p>', unsafe_allow_html=True)
 
     stream = st.session_state.get('selected_stream_data')
 
     if not stream:
-        st.warning("No stream selected yet. Please go back and choose a recommendation.")
-        if st.button("← Back to Recommendations", use_container_width=True):
+        st.warning(t("messages.warning.no_stream_selected"))
+        if st.button(t("buttons.back_to_recommendations"), use_container_width=True):
             st.session_state.page = 'recommendation'
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
@@ -8561,8 +9861,8 @@ def show_report():
 
     st.markdown(f"""
     <div style="background:#FFF8F0; border-radius:16px; padding:1.2rem;">
-        <strong>Selected Stream:</strong> {stream['stream_name']}<br>
-        <strong>Match Score:</strong> {stream['match_percentage']}%<br><br>
+        <strong>{_t('Selected Stream')}:</strong> {_t(stream['stream_name'])}<br>
+        <strong>{_t('Match Score')}:</strong> {stream['match_percentage']}%<br><br>
         <p>{stream['explanation']}</p>
     </div>
     """, unsafe_allow_html=True)
@@ -8570,7 +9870,7 @@ def show_report():
     # Student -> Select Recommended Career -> 12-Month Learning Roadmap.
     # This is the entry point into the AI-generated learning roadmap for
     # whichever career/stream the student has selected here.
-    if st.button("🗓️ View 12-Month Learning Roadmap", type="primary", use_container_width=True):
+    if st.button(t("buttons.view_roadmap"), type="primary", use_container_width=True):
         st.session_state.roadmap_career_name = stream['stream_name']
         st.session_state.learning_roadmap = None
         st.session_state.roadmap_return_page = 'report'
@@ -8580,7 +9880,7 @@ def show_report():
     # Student -> Select Recommended Career -> AI Skill Gap Analysis. Entry
     # point for comparing the student's current abilities against the
     # industry skills Gemini determines this career requires.
-    if st.button("🧭 View AI Skill Gap Analysis", use_container_width=True):
+    if st.button(t("buttons.view_skill_gap"), use_container_width=True):
         st.session_state.skillgap_career_name = stream['stream_name']
         st.session_state.skill_gap_analysis = None
         st.session_state.skillgap_return_page = 'report'
@@ -8590,7 +9890,7 @@ def show_report():
     # Student -> Recommended Career -> Skills -> Roadmap -> AI Resume
     # Suggestions. Pulls in whatever skills/roadmap context has already
     # been generated for this career, if any.
-    if st.button("📄 Get AI Resume Suggestions", use_container_width=True):
+    if st.button(t("buttons.get_resume_suggestions"), use_container_width=True):
         st.session_state.resume_career_name = stream['stream_name']
         st.session_state.resume_suggestions = None
         st.session_state.resume_suggestions_return_page = 'report'
@@ -8622,7 +9922,7 @@ def show_report():
         stream['stream_name'],
     )
     if st.session_state.ai_deep_dive is None or st.session_state.ai_deep_dive_fingerprint != current_fp:
-        with st.spinner("Generating your full AI career report..."):
+        with st.spinner(_t("Generating your full AI career report...")):
             result = generate_ai_deep_dive(
                 student_details,
                 st.session_state.responses,
@@ -8638,7 +9938,7 @@ def show_report():
 
     if not report:
         msg = (st.session_state.ai_deep_dive_status or {}).get(
-            'message', 'The full AI report could not be generated right now.'
+            'message', _t('The full AI report could not be generated right now.')
         )
         st.markdown(f"""
         <div style="background:#FFF3E0; border-radius:16px; padding:1.2rem; margin:1rem 0;">
@@ -8646,20 +9946,21 @@ def show_report():
         </div>
         """, unsafe_allow_html=True)
         if st.session_state.get('ai_deep_dive_error'):
-            with st.expander("Technical details (for debugging)"):
+            with st.expander(_t("Technical details (for debugging)")):
                 st.code(st.session_state.ai_deep_dive_error)
-        if st.button("🔁 Retry Report Generation", use_container_width=True):
+        if st.button(t("buttons.retry_report_generation"), use_container_width=True):
             st.session_state.ai_deep_dive = None
             st.rerun()
     else:
         def section(title, icon, body):
             st.markdown(f'<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
-            st.markdown(f"**{icon} {title}**")
-            if isinstance(body, list):
-                for item in body:
+            st.markdown(f"**{icon} {_t(title)}**")
+            display_body = body
+            if isinstance(display_body, list):
+                for item in display_body:
                     st.markdown(f"- {item}")
             else:
-                st.markdown(body)
+                st.markdown(display_body)
             st.markdown('</div>', unsafe_allow_html=True)
 
         section("Career Overview", "📘", report.get("career_overview", ""))
@@ -8669,13 +9970,13 @@ def show_report():
         # modern skill chips. "Software Skills" is never generated or
         # displayed under any name (enforced in the prompt + validator). ----
         st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
-        st.markdown("**🛠️ Required Skills**")
-        st.markdown("*Technical Skills*")
+        st.markdown(f"**{_t('🛠️ Required Skills')}**")
+        st.markdown(f"*{_t('Technical Skills')}*")
         tech_chips = "".join(
             f'<span class="skill-chip-tech">{skill}</span>' for skill in report.get("technical_skills", [])
         )
         st.markdown(f'<div>{tech_chips}</div>', unsafe_allow_html=True)
-        st.markdown("<br>*Soft Skills*", unsafe_allow_html=True)
+        st.markdown(f"<br>*{_t('Soft Skills')}*", unsafe_allow_html=True)
         soft_chips = "".join(
             f'<span class="skill-chip-soft">{skill}</span>' for skill in report.get("soft_skills", [])
         )
@@ -8685,18 +9986,19 @@ def show_report():
         # ---- Career Opportunities: hiring cities, industry hubs, and hiring
         # industries, entirely AI-generated, shown as modern cards. ----
         st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
-        st.markdown("**🌍 Career Opportunities**")
+        st.markdown(f"**{_t('🌍 Career Opportunities')}**")
         st.markdown('</div>', unsafe_allow_html=True)
 
         def opportunity_grid(subtitle, icon, items):
-            st.markdown(f"**{icon} {subtitle}**")
+            st.markdown(f"**{icon} {_t(subtitle)}**")
             items = items or []
             if not items:
                 return
+            display_items = items
             cards_html = "".join(
                 f'<div class="opportunity-card"><div class="opp-icon">{icon}</div>'
                 f'<div class="opp-label">{item}</div></div>'
-                for item in items
+                for item in display_items
             )
             st.markdown(f'<div class="card-grid card-grid-4">{cards_html}</div>', unsafe_allow_html=True)
 
@@ -8710,19 +10012,20 @@ def show_report():
         # ---- Education Path: structured, AI-generated, shaped differently
         # for school vs college students. ----
         st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
-        st.markdown("**🎓 Education Path**")
+        st.markdown(f"**{_t('🎓 Education Path')}**")
         st.markdown('</div>', unsafe_allow_html=True)
 
         education_path = report.get("education_path", {}) or {}
 
         def edu_field(label, icon, value):
             st.markdown(f'<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
-            st.markdown(f"**{icon} {label}**")
-            if isinstance(value, list):
-                for item in value:
+            st.markdown(f"**{icon} {_t(label)}**")
+            display_value = value
+            if isinstance(display_value, list):
+                for item in display_value:
                     st.markdown(f"- {item}")
             else:
-                st.markdown(value or "")
+                st.markdown(display_value or "")
             st.markdown('</div>', unsafe_allow_html=True)
 
         if st.session_state.user_type == 'school':
@@ -8740,20 +10043,21 @@ def show_report():
         # selected career - no hardcoded certification/resource lists. ----
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown('<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
-        st.markdown("**📚 Learning Resources**")
+        st.markdown(f"**{_t('📚 Learning Resources')}**")
         st.markdown('</div>', unsafe_allow_html=True)
 
         learning_resources = report.get("learning_resources", {}) or {}
 
         def resource_grid(subtitle, icon, items):
-            st.markdown(f"**{icon} {subtitle}**")
+            st.markdown(f"**{icon} {_t(subtitle)}**")
             items = items or []
             if not items:
                 return
+            display_items = items
             cards_html = "".join(
                 f'<div class="opportunity-card"><div class="opp-icon">{icon}</div>'
                 f'<div class="opp-label">{item}</div></div>'
-                for item in items
+                for item in display_items
             )
             st.markdown(f'<div class="card-grid card-grid-3">{cards_html}</div>', unsafe_allow_html=True)
 
@@ -8771,8 +10075,8 @@ def show_report():
         roles = report.get("related_career_roles", [])
         if roles:
             st.markdown(f'<div class="question-card" style="text-align:left;">', unsafe_allow_html=True)
-            st.markdown(f"**🧭 Related Career Roles**")
-            st.markdown("Click a role to see its full AI-generated breakdown.")
+            st.markdown(f"**🧭 {_t('Related Career Roles')}**")
+            st.markdown(_t("Click a role to see its full AI-generated breakdown."))
             st.markdown('</div>', unsafe_allow_html=True)
             for row_start in range(0, len(roles), 3):
                 row_roles = roles[row_start:row_start + 3]
@@ -8780,7 +10084,7 @@ def show_report():
                 for j, role in enumerate(row_roles):
                     r_idx = row_start + j
                     with row_cols[j]:
-                        if st.button(role, key=f"role_{r_idx}", use_container_width=True):
+                        if st.button(_t(role), key=f"role_{r_idx}", use_container_width=True):
                             st.session_state.selected_career_role = role
                             st.session_state.ai_role_detail = None
                             st.session_state.role_detail_return_page = 'report'
@@ -8792,34 +10096,34 @@ def show_report():
     # ONLY PDF Download button (removed TXT and Print buttons)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("📥 Download Report (PDF)", type="primary", use_container_width=True):
+        if st.button(t("buttons.download_report_pdf"), type="primary", use_container_width=True):
             if st.session_state.selected_stream:
-                with st.spinner("Generating PDF report..."):
+                with st.spinner(_t("Generating PDF report...")):
                     try:
                         pdf_path = generate_pdf_report()
                         with open(pdf_path, "rb") as pdf_file:
                             pdf_data = pdf_file.read()
                         st.download_button(
-                            label="💾 Save PDF Report",
+                            label=_t("💾 Save PDF Report"),
                             data=pdf_data,
                             file_name=f"{st.session_state.student_name}_career_report.pdf",
                             mime="application/pdf",
                             key="download_pdf"
                         )
                         os.unlink(pdf_path)
-                        st.success("✅ PDF Report generated successfully!")
+                        st.success(t("messages.success.pdf_report_generated"))
                     except Exception as e:
-                        st.error(f"Error generating PDF: {str(e)}")
+                        st.error(f"{t('messages.error.pdf_generation')} {str(e)}")
     
     st.markdown("<br>", unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("← Back to AI Analysis", use_container_width=True):
+        if st.button(t("buttons.back_to_ai_analysis"), use_container_width=True):
             st.session_state.page = 'ai_analysis'
             st.rerun()
     with col2:
-        if st.button("🏠 Start New Assessment", use_container_width=True):
+        if st.button(t("buttons.start_new_assessment"), use_container_width=True):
             # Reset all session state
             for key in list(st.session_state.keys()):
                 if key not in ['page']:
@@ -8861,6 +10165,8 @@ def main():
         show_career_chatbot()
     elif st.session_state.page == 'help':
         show_help()
+    elif st.session_state.page == 'vocational_careers':
+        show_vocational_careers()
 
 if __name__ == "__main__":
     main()
