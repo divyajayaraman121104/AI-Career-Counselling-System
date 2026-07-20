@@ -7159,7 +7159,7 @@ def show_header():
                 # eventual "Back" button on the section can restore
                 # wherever the user came from, without touching any other
                 # assessment/session data.
-                if st.button(_t("Vocational Careers"), key="menu_vocational", use_container_width=True):
+                if st.button(_t("Vocational"), key="menu_vocational", use_container_width=True):
                     if st.session_state.page != 'vocational_careers':
                         st.session_state.vocational_careers_return_page = st.session_state.page
                     st.session_state.page = 'vocational_careers'
